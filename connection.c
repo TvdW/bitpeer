@@ -18,6 +18,7 @@ int bp_connection_init(bp_connection_s *connection, bp_server_s *server)
 {
 	// TODO: we really need remote_addr set
 	memset(connection, 0, sizeof(bp_connection_s));
+	connection->remote_addr[11] = connection->remote_addr[10] = 0xFF;
 	connection->server = server;
 	return 0;
 }

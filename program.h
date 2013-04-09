@@ -9,8 +9,7 @@ struct bp_program_t {
 	bp_addrpool_s addrpool;
 
 	// Settings
-	unsigned int addrpool_v4count;
-	unsigned int addrpool_v6count;
+	unsigned int addrpool_size;
 	unsigned int min_connections;
 	unsigned int max_connections;
 	

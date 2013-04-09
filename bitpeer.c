@@ -7,18 +7,20 @@
 #include "connection.h"
 #include "program.h"
 #include "server.h"
+#include "btcblock.h"
 
 int main(int argc, char** argv)
 {
 	/* For safety we do these protocol struct assertions */
 	assert(sizeof(bp_proto_message_s) == 24);
 	assert(sizeof(bp_proto_net_addr_s) == 26);
+	assert(sizeof(bp_proto_net_addr_full_s) == 30);
 	assert(sizeof(bp_proto_version_s) == 80);
+	assert(sizeof(bp_btcblock_header_s) == 80);
 	
 	/* Set the settings */
 	bp_program_s program;
-	program.addrpool_v4count = 4096;
-	program.addrpool_v6count = 128;
+	program.addrpool_size = 4096;
 	program.min_connections  = 10;
 	program.listen_v4 = 8334;
 	program.listen_v6 = 0;

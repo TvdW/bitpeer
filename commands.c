@@ -44,6 +44,10 @@ int bp_connection_readmessage(bp_connection_s *connection)
 		return bp_connection_readaddr(connection);
 	}
 	
+	if (memcmp(connection->current_message.command, getaddr_command, 12) == 0) {
+		return bp_connection_readgetaddr(connection);
+	}
+	
 	printf("Unknown message type \"%s\"\n", connection->current_message.command);
 	bp_connection_skipmessage(connection);
 	
@@ -156,6 +160,16 @@ int bp_connection_sendgetaddr(bp_connection_s *connection)
 	return bp_connection_sendmessage(connection, getaddr_command, NULL, 0);
 }
 
+int bp_connection_readgetaddr(bp_connection_s *connection)
+{
+	if (connection->current_message.length != 0) {
+		bp_connection_skipmessage(connection);
+		return -1;
+	}
+	
+	return 0;
+}
+
 int bp_connection_readaddr(bp_connection_s *connection)
 {
 	if (connection->current_message.length > (1000 * 30 + 3)) {
@@ -179,14 +193,13 @@ int bp_connection_readaddr(bp_connection_s *connection)
 	
 	// Iterate over all addresses
 	for (; position < connection->current_message.length; position += 30) {
-		ev_uint32_t time = *(ev_uint32_t*)(payload + position);
-		bp_proto_net_addr_s *addr = (bp_proto_net_addr_s*)(payload + position + 4);
-		
-		int family = bp_addrtype(addr->address);
-		bp_addrpool_add(&connection->server->program->addrpool, family, addr->address + (family == 4 ? 12 : 0), ntohs(addr->port), time);
+		bp_addrpool_add(&connection->server->program->addrpool, (bp_proto_net_addr_full_s*) (payload + position));
 	}
 	
 	free(payload);
 	
 	return 0;
 }
+
+
+/* inv commands */

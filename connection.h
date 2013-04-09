@@ -15,13 +15,6 @@ struct bp_proto_message_t {
 };
 typedef struct bp_proto_message_t bp_proto_message_s;
 
-struct bp_proto_net_addr_t {
-	ev_uint64_t services;
-	char address[16];
-	ev_uint16_t port;
-} __attribute__ ((__packed__));
-typedef struct bp_proto_net_addr_t bp_proto_net_addr_s;
-
 struct bp_proto_version_t {
 	ev_int32_t version;
 	ev_uint64_t services;
