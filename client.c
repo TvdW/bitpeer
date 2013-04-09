@@ -7,6 +7,8 @@ int bp_connection_post_handshake(bp_connection_s *connection)
 	connection->handsshaken = 1;
 	
 	if (connection->is_seed) {
-		bp_connection_sendmessage(connection, getaddr_command, NULL, 0);
+		bp_connection_sendgetaddr(connection);
 	}
+	
+	return 0;
 }

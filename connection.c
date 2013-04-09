@@ -6,7 +6,7 @@
 #include "connection.h"
 #include "commands.h"
 
-int bp_connection_init(bp_connection_s *connection, bp_program_s *program);
+int bp_connection_init(bp_connection_s *connection, bp_server_s *server);
 int bp_connection_init_finish(bp_connection_s *connection);
 
 void bp_connection_readcb (struct bufferevent *bev, void *ctx);
@@ -14,10 +14,10 @@ void bp_connection_writecb(struct bufferevent *bev, void *ctx);
 void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx);
 
 /* Initialization */
-int bp_connection_init(bp_connection_s *connection, bp_program_s *program)
+int bp_connection_init(bp_connection_s *connection, bp_server_s *server)
 {
 	memset(connection, 0, sizeof(bp_connection_s));
-	connection->program = program;
+	connection->server = server;
 	return 0;
 }
 
@@ -34,14 +34,14 @@ int bp_connection_init_finish(bp_connection_s *connection)
 	return 0;
 }
 
-int bp_connection_init_socket(bp_connection_s *connection, bp_program_s *program, evutil_socket_t fd)
+int bp_connection_init_socket(bp_connection_s *connection, bp_server_s *server, evutil_socket_t fd)
 {
-	int r = bp_connection_init(connection, program);
+	int r = bp_connection_init(connection, server);
 	if (r < 0) {
 		return r;
 	}
 	
-	connection->sockbuf = bufferevent_socket_new(program->eventbase, fd, BEV_OPT_CLOSE_ON_FREE);
+	connection->sockbuf = bufferevent_socket_new(server->program->eventbase, fd, BEV_OPT_CLOSE_ON_FREE);
 	if (!connection->sockbuf) {
 		return -1;
 	}
@@ -49,14 +49,14 @@ int bp_connection_init_socket(bp_connection_s *connection, bp_program_s *program
 	return bp_connection_init_finish(connection);
 }
 
-int bp_connection_connect(bp_connection_s *connection, bp_program_s *program, struct sockaddr *address, int addrlen)
+int bp_connection_connect(bp_connection_s *connection, bp_server_s *server, struct sockaddr *address, int addrlen)
 {
-	int r = bp_connection_init(connection, program);
+	int r = bp_connection_init(connection, server);
 	if (r < 0) {
 		return r;
 	}
 	
-	connection->sockbuf = bufferevent_socket_new(program->eventbase, -1, BEV_OPT_CLOSE_ON_FREE);
+	connection->sockbuf = bufferevent_socket_new(server->program->eventbase, -1, BEV_OPT_CLOSE_ON_FREE);
 	if (!connection->sockbuf) return -1;
 	
 	if (bufferevent_socket_connect(connection->sockbuf, address, addrlen) < 0) {
@@ -94,7 +94,7 @@ begin:
 			return;
 		}
 		
-		if (connection->current_message.magic != connection->program->network_magic) {
+		if (connection->current_message.magic != connection->server->program->network_magic) {
 			bp_connection_skipmessage(connection);
 		}
 		else {
@@ -104,6 +104,8 @@ begin:
 		connection->in_message = 0;
 		len -= connection->current_message.length;
 	}
+	
+	assert(evbuffer_get_length(input) == len);
 	
 	goto begin;
 }
@@ -126,7 +128,7 @@ void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx)
 int bp_connection_sendmessage(bp_connection_s *connection, const char *command, unsigned char *payload, unsigned payload_length)
 {
 	bp_proto_message_s header;
-	header.magic = connection->program->network_magic;
+	header.magic = connection->server->program->network_magic;
 	memcpy(header.command, command, 12);
 	header.length = payload_length;
 	
@@ -148,9 +150,14 @@ int bp_connection_sendmessage(bp_connection_s *connection, const char *command, 
 /* Protocol recv functions */
 int bp_connection_readpayload(bp_connection_s *connection, unsigned char **payload)
 {
-	*payload = malloc(connection->current_message.length);
-	int r = bufferevent_read(connection->sockbuf, *payload, connection->current_message.length);
-	assert(r == connection->current_message.length);
+	if (connection->current_message.length) {
+		*payload = malloc(connection->current_message.length);
+		int r = bufferevent_read(connection->sockbuf, *payload, connection->current_message.length);
+		assert(r == connection->current_message.length);
+	}
+	else {
+		*payload = NULL;
+	}
 	
 	/* Checksum */
 	unsigned char shabuf1[SHA256_DIGEST_LENGTH];

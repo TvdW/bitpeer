@@ -4,6 +4,8 @@
 #include <time.h>
 #include "commands.h"
 #include "client.h"
+#include "addrpool.h"
+#include "util.h"
 
 // Constants for the network protocol. Ugly but efficient
 const ev_int32_t client_version =  70001;
@@ -38,13 +40,17 @@ int bp_connection_readmessage(bp_connection_s *connection)
 		return bp_connection_readverack(connection);
 	}
 	
+	if (memcmp(connection->current_message.command, addr_command, 12) == 0) {
+		return bp_connection_readaddr(connection);
+	}
+	
 	printf("Unknown message type \"%s\"\n", connection->current_message.command);
 	bp_connection_skipmessage(connection);
 	
 	return -1;
 }
 
-/* Specific commands */
+/* Version handshake commands */
 int bp_connection_sendversion(bp_connection_s *connection)
 {
 	assert(connection->version_sent == 0);
@@ -58,14 +64,21 @@ int bp_connection_sendversion(bp_connection_s *connection)
 	msghead->timestamp = (ev_uint64_t)time(0);
 	msghead->nonce = 123; // TODO
 	memcpy(payload+80, useragent_str, sizeof(useragent_str));
-	// TODO: start_height, relay, IP info
+	
+	memcpy(msghead->addr_recv.address, connection->remote_addr, 16);
+	msghead->addr_recv.port = ntohs(connection->remote_port);
+	
+	memcpy(msghead->addr_from.address, connection->server->local_addr, 16);
+	msghead->addr_from.port = ntohs(connection->server->local_port);
+	
+	// TODO: start_height, relay, addr_from
 	
 	return bp_connection_sendmessage(connection, version_command, payload, 85 + sizeof(useragent_str));
 }
 
 int bp_connection_readversion(bp_connection_s *connection)
 {
-	if (connection->current_message.length > 1024) {
+	if (connection->current_message.length > 1024 || connection->current_message.length < 46) {
 		bp_connection_skipmessage(connection);
 		return -1;
 	}
@@ -132,6 +145,48 @@ int bp_connection_readverack(bp_connection_s *connection)
 	if (connection->peer_version) {
 		return bp_connection_post_handshake(connection);
 	}
+	
+	return 0;
+}
+
+
+/* address commands */
+int bp_connection_sendgetaddr(bp_connection_s *connection)
+{
+	return bp_connection_sendmessage(connection, getaddr_command, NULL, 0);
+}
+
+int bp_connection_readaddr(bp_connection_s *connection)
+{
+	if (connection->current_message.length > (1000 * 30 + 3)) {
+		bp_connection_skipmessage(connection);
+		return -1;
+	}
+	
+	unsigned char *payload;
+	if (bp_connection_readpayload(connection, &payload) < 0) {
+		return -1;
+	}
+	
+	size_t position = 0;
+	ev_uint64_t addrcount = bp_readvarint(payload, &position, connection->current_message.length);
+	
+	if (addrcount * 30 != connection->current_message.length - position) {
+		printf("Length mismatch\n");
+		free(payload);
+		return -1;
+	}
+	
+	// Iterate over all addresses
+	for (; position < connection->current_message.length; position += 30) {
+		ev_uint32_t time = *(ev_uint32_t*)(payload + position);
+		bp_proto_net_addr_s *addr = (bp_proto_net_addr_s*)(payload + position + 4);
+		
+		int family = bp_addrtype(addr->address);
+		bp_addrpool_add(&connection->server->program->addrpool, family, addr->address + (family == 4 ? 12 : 0), ntohs(addr->port), time);
+	}
+	
+	free(payload);
 	
 	return 0;
 }
