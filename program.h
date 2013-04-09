@@ -12,6 +12,7 @@ struct bp_program_t {
 	unsigned int addrpool_v4count;
 	unsigned int addrpool_v6count;
 	unsigned int min_connections;
+	unsigned int max_connections;
 	
 	unsigned short listen_v4;
 	unsigned short listen_v6;

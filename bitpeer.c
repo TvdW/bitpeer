@@ -1,5 +1,4 @@
 #include <event2/event.h>
-#include <event2/listener.h>
 #include <sys/socket.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,15 +7,6 @@
 #include "connection.h"
 #include "program.h"
 #include "server.h"
-
-void accept_conn_cb(struct evconnlistener *listener, evutil_socket_t fd,
-					struct sockaddr *address, int socklen, void* ctx)
-{
-	printf("Incoming connection\n");
-	bp_server_s *server = ctx;
-	bp_connection_s *conn = malloc(sizeof(bp_connection_s));
-	bp_connection_init_socket(conn, server, fd);
-}
 
 int main(int argc, char** argv)
 {
@@ -46,6 +36,9 @@ int main(int argc, char** argv)
 	/* Create a server */
 	bp_server_s server;
 	bp_server_init(&server, &program, 4, (char*)&program.my_ip4, program.my_ip4port);
+	if (bp_server_listen(&server, program.listen_v4) < 0) {
+		return EXIT_FAILURE;
+	}
 	
 	/* We need to connect to one initial node in order to seed everything.
 	   We will not do this initial discovery ourselves. */
@@ -58,19 +51,6 @@ int main(int argc, char** argv)
 	bp_connection_s *seed_connection = malloc(sizeof(bp_connection_s));
 	bp_connection_connect(seed_connection, &server, (struct sockaddr*)&sin, sizeof(sin));
 	seed_connection->is_seed = 1;
-	
-	/* We'll also need to listen for incoming connections */
-	/*if (program.listen_v4) {
-		struct sockaddr_in listensin;
-		memset(&listensin, 0, sizeof(listensin));
-		listensin.sin_family = AF_INET;
-		listensin.sin_port = htons(program.listen_v4);
-		struct evconnlistener *listener = evconnlistener_new_bind(program.eventbase, accept_conn_cb, &program, LEV_OPT_REUSEABLE|LEV_OPT_CLOSE_ON_FREE, -1, (struct sockaddr*)&listensin, sizeof(listensin));
-		if (!listener) {
-			printf("Listen4 failed\n");
-			return EXIT_FAILURE;
-		}
-	}*/
 	
 	/* Run the loop */
 	event_base_loop(program.eventbase, 0);

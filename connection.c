@@ -16,6 +16,7 @@ void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx);
 /* Initialization */
 int bp_connection_init(bp_connection_s *connection, bp_server_s *server)
 {
+	// TODO: we really need remote_addr set
 	memset(connection, 0, sizeof(bp_connection_s));
 	connection->server = server;
 	return 0;
@@ -68,6 +69,12 @@ int bp_connection_connect(bp_connection_s *connection, bp_server_s *server, stru
 }
 
 
+void bp_connection_free(bp_connection_s *connection)
+{
+	bufferevent_free(connection->sockbuf);
+	free(connection);
+}
+
 
 /* Events */
 void bp_connection_readcb(struct bufferevent *bev, void *ctx)
@@ -118,8 +125,12 @@ void bp_connection_writecb(struct bufferevent *bev, void *ctx)
 
 void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx)
 {
-	//bp_connection_s *connection = (bp_connection_s*)ctx;
+	bp_connection_s *connection = (bp_connection_s*)ctx;
 	printf("Event %d callback\n", events);
+	
+	if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) {
+		bp_connection_free(connection);
+	}
 }
 
 

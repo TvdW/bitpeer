@@ -71,7 +71,7 @@ int bp_connection_sendversion(bp_connection_s *connection)
 	memcpy(msghead->addr_from.address, connection->server->local_addr, 16);
 	msghead->addr_from.port = ntohs(connection->server->local_port);
 	
-	// TODO: start_height, relay, addr_from
+	// TODO: start_height, relay
 	
 	return bp_connection_sendmessage(connection, version_command, payload, 85 + sizeof(useragent_str));
 }

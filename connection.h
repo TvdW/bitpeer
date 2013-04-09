@@ -43,7 +43,6 @@ struct bp_connection_t {
 	unsigned in_message:   1;
 	unsigned handsshaken:  1;
 	unsigned is_seed:      1;
-	unsigned is_v4:        1;
 	
 	ev_int32_t peer_version;
 	
@@ -56,6 +55,7 @@ typedef struct bp_connection_t bp_connection_s;
 
 int bp_connection_connect(bp_connection_s *connection, bp_server_s *server, struct sockaddr *address, int addrlen);
 int bp_connection_init_socket(bp_connection_s *connection, bp_server_s *server, evutil_socket_t fd);
+void bp_connection_free(bp_connection_s *connection);
 
 int bp_connection_readpayload(bp_connection_s *connection, unsigned char **payload);
 int bp_connection_sendmessage(bp_connection_s *connection, const char *command, unsigned char *payload, unsigned payload_length);

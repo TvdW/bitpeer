@@ -35,6 +35,8 @@ void bp_addrpool_deinit(bp_addrpool_s *pool)
 
 int bp_addrpool_add(bp_addrpool_s *pool, int family, char *address, unsigned short port, unsigned int last_seen)
 {
+	// TODO: check duplicates
+	// TODO: also allow replacing old ones
 	if (last_seen == 0) last_seen = 1; // We don't want bugs
 	
 	int i, pos;
