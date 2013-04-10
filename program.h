@@ -2,6 +2,7 @@
 #include <event2/event.h>
 #include "addrpool.h"
 #include "blockstorage.h"
+#include "txpool.h"
 
 struct bp_program_t {
 	// References to other objects
@@ -9,7 +10,11 @@ struct bp_program_t {
 	ev_uint32_t network_magic;
 	bp_addrpool_s addrpool;
 	bp_blockstorage_s blockstorage;
-
+	bp_txpool_s txpool;
+	
+	void** connections;
+	unsigned int cur_connections;
+	
 	// Settings
 	unsigned int addrpool_size;
 	unsigned int min_connections;
@@ -24,7 +29,11 @@ struct bp_program_t {
 	unsigned int my_ip4;
 	unsigned short my_ip4port;
 	
+	unsigned int txpool_size;
+	
 	unsigned reindex_blocks: 1;
+	unsigned relay_transactions: 1;
+	unsigned relay_blocks: 1;
 };
 typedef struct bp_program_t bp_program_s;
 

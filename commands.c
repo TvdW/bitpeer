@@ -1,3 +1,4 @@
+#include <openssl/sha.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +10,7 @@
 #include "addrpool.h"
 #include "util.h"
 #include "blockstorage.h"
+#include "txpool.h"
 
 // Constants for the network protocol. Ugly but efficient
 const ev_int32_t client_version =  70001;
@@ -55,6 +57,14 @@ int bp_connection_readmessage(bp_connection_s *connection)
 		return bp_connection_readinv(connection);
 	}
 	
+	if (memcmp(connection->current_message.command, tx_command, 12) == 0) {
+		return bp_connection_readtx(connection);
+	}
+	
+	if (memcmp(connection->current_message.command, getdata_command, 12) == 0) {
+		return bp_connection_readgetdata(connection);
+	}
+	
 	printf("Unknown message type \"%s\"\n", connection->current_message.command);
 	bp_connection_skipmessage(connection);
 	
@@ -82,7 +92,12 @@ int bp_connection_sendversion(bp_connection_s *connection)
 	memcpy(msghead->addr_from.address, connection->server->local_addr, 16);
 	msghead->addr_from.port = ntohs(connection->server->local_port);
 	
-	// TODO: start_height, relay
+	unsigned int start_height = bp_blockstorage_getheight(&connection->server->program->blockstorage);
+	memcpy(payload + 80 + sizeof(useragent_str), &start_height, 4);
+	
+	// TODO: relay
+	if (connection->server->program->relay_transactions)
+		payload[84 + sizeof(useragent_str)] = 1;
 	
 	return bp_connection_sendmessage(connection, version_command, payload, 85 + sizeof(useragent_str));
 }
@@ -240,9 +255,96 @@ int bp_connection_readinv(bp_connection_s *connection)
 				printf("We don't have it yet\n");
 			}
 		}
+		else if (inv_part.type == 1) { // tx
+			if (bp_txpool_gettx(&connection->server->program->txpool, inv_part.hash) != NULL) {
+				printf("We have it though\n");
+			}
+			else {
+				printf("We don't have it yet\n");
+				// TODO: group these
+				bp_connection_sendgetdata(connection, 1, inv_part.hash);
+			}
+		}
 	}
 	
 	return 0;
+}
+
+int bp_connection_readtx(bp_connection_s *connection)
+{
+	unsigned char *payload;
+	if (bp_connection_readpayload(connection, &payload) < 0) {
+		return -1;
+	}
+	
+	// TODO: we're doing this twice.
+	unsigned char hash1[SHA256_DIGEST_LENGTH];
+	unsigned char hash2[SHA256_DIGEST_LENGTH];
+	SHA256(payload, connection->current_message.length, hash1);
+	SHA256(hash1, SHA256_DIGEST_LENGTH, hash2);
+	
+	// We don't have to free the pointer, as the txpool takes it from us
+	bp_txpool_addtx(&connection->server->program->txpool, (char*)payload, connection->current_message.length);
+	
+	printf("Added a new tx to the pool\n");
+	
+	// Announce it
+	unsigned char announcement[37];
+	announcement[0] = announcement[1] = 1;
+	announcement[2] = announcement[3] = announcement[4] = 0;
+	memcpy(announcement+5, hash2, 32);
+	
+	return bp_connection_broadcast(connection, inv_command, announcement, 37);
+}
+
+int bp_connection_readgetdata(bp_connection_s *connection)
+{
+	if (bp_connection_verifypayload(connection) < 0) {
+		bp_connection_skipmessage(connection);
+		return -1;
+	}
+	
+	size_t remaining_len = connection->current_message.length;
+	ev_uint64_t getdatacnt = bp_connection_readvarint(connection, &remaining_len);
+	
+	if (remaining_len != getdatacnt * 36) {
+		evbuffer_drain(bufferevent_get_input(connection->sockbuf), remaining_len);
+		return -1;
+	}
+	
+	printf("%lu getdata's (%lu)\n", getdatacnt, remaining_len);
+	ev_uint64_t i;
+	for (i = 0; i < getdatacnt; i++) {
+		bp_proto_inv_s inv_part;
+		bufferevent_read(connection->sockbuf, &inv_part, sizeof(inv_part));
+		printf("Getdata type %d\n", inv_part.type);
+		
+		if (inv_part.type == 1) { // tx
+			bp_txpool_tx_s *tx = bp_txpool_gettx(&connection->server->program->txpool, inv_part.hash);
+			if (!tx) {
+				// Not found. // TODO: group these
+				// TODO: notfound
+				printf("Item not found\n");
+				continue;
+			}
+			
+			// TODO: we already have the checksum...
+			bp_connection_sendmessage(connection, tx_command, (unsigned char*)tx->data, tx->length);
+		}
+	}
+	
+	return 0;
+}
+
+int bp_connection_sendgetdata(bp_connection_s *connection, int type, char *hash)
+{
+	unsigned char sendblock[37];
+	memcpy(sendblock+5, hash, 32);
+	sendblock[0] = 1;
+	sendblock[1] = type;
+	sendblock[2] = sendblock[3] = sendblock[4] = 0;
+	
+	return bp_connection_sendmessage(connection, getdata_command, sendblock, 37);
 }
 
 

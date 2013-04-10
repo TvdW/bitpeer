@@ -18,6 +18,23 @@ int bp_connection_init(bp_connection_s *connection, bp_server_s *server)
 	memset(connection, 0, sizeof(bp_connection_s));
 	connection->remote_addr[11] = connection->remote_addr[10] = (char)0xFF;
 	connection->server = server;
+	
+	if (server->program->cur_connections == server->program->max_connections) {
+		// TODO
+	}
+	
+	int i, found = 0;
+	for (i = 0; i < server->program->max_connections; i++) {
+		if (server->program->connections[i] == NULL) {
+			found = 1;
+			connection->connection_id = i;
+			server->program->connections[i] = connection;
+			server->program->cur_connections += 1;
+			break;
+		}
+	}
+	assert(found);
+	
 	return 0;
 }
 
@@ -84,6 +101,10 @@ int bp_connection_connect(bp_connection_s *connection, bp_server_s *server, stru
 
 void bp_connection_free(bp_connection_s *connection)
 {
+	assert(connection->server->program->connections[connection->connection_id] == connection);
+	connection->server->program->connections[connection->connection_id] = NULL;
+	connection->server->program->cur_connections -= 1;
+	
 	bufferevent_free(connection->sockbuf);
 	free(connection);
 }
@@ -163,6 +184,32 @@ int bp_connection_sendmessage(bp_connection_s *connection, const char *command, 
 	return 0;
 }
 
+int bp_connection_broadcast(bp_connection_s *origin, const char *command, unsigned char *payload, unsigned payload_length)
+{
+	bp_proto_message_s header;
+	header.magic = origin->server->program->network_magic;
+	memcpy(header.command, command, 12);
+	header.length = payload_length;
+	
+	unsigned char shabuf1[SHA256_DIGEST_LENGTH];
+	unsigned char shabuf2[SHA256_DIGEST_LENGTH];
+	SHA256(payload, payload_length, shabuf1);
+	SHA256(shabuf1, SHA256_DIGEST_LENGTH, shabuf2);
+	header.checksum = *(ev_uint32_t*)(shabuf2);
+	
+	int i;
+	for (i = 0; i < origin->server->program->max_connections; i++) {
+		bp_connection_s *conn = origin->server->program->connections[i];
+		if (conn == NULL || conn == origin) continue;
+		if (!conn->handsshaken) continue;
+		
+		bufferevent_write(conn->sockbuf, &header, sizeof(header));
+		if (payload_length)
+			bufferevent_write(conn->sockbuf, payload, payload_length);
+	}
+	
+	return 0;
+}
 
 
 /* Protocol recv functions */

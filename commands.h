@@ -1,3 +1,4 @@
+#pragma once
 #include "connection.h"
 
 int bp_connection_readmessage(bp_connection_s *connection);
@@ -12,6 +13,9 @@ int bp_connection_readgetaddr(bp_connection_s *connection);
 //int bp_connection_sendaddr(bp_connection_s *connection);
 int bp_connection_readaddr(bp_connection_s *connection);
 int bp_connection_readinv(bp_connection_s *connection);
+int bp_connection_readtx(bp_connection_s *connection);
+int bp_connection_sendgetdata(bp_connection_s *connection, int type, char *hash);
+int bp_connection_readgetdata(bp_connection_s *connection);
 
 extern const char version_command[], verack_command[], addr_command[], inv_command[],
 	getdata_command[], notfound_command[], getblocks_command[], getheaders_command[],

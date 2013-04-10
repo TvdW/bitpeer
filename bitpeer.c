@@ -48,6 +48,7 @@ int main(int argc, char** argv)
 	
 	/* Set the settings */
 	bp_program_s program;
+	memset(&program, 0, sizeof(program));
 	program.addrpool_size = 4096;
 	program.min_connections = 10;
 	program.max_connections = 1000;
@@ -56,6 +57,9 @@ int main(int argc, char** argv)
 	program.seed_host4 = 0x7f000001;
 	program.seed_port4 = 8333;
 	//program.reindex_blocks = 1;
+	program.relay_transactions = 1;
+	program.relay_blocks = 0;
+	program.txpool_size = 1024;
 	
 	program.my_ip4 = htonl(0x54544411);
 	program.my_ip4port = 8333;

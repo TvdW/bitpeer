@@ -102,7 +102,7 @@ void bp_blockstorage_deinit(bp_blockstorage_s *storage)
 }
 
 
-int bp_blockstorage_store(bp_blockstorage_s *storage, char *blockhash, bp_btcblock_header_s *header, ev_uint64_t txn_count, bp_btcblock_tx_s *txs)
+int bp_blockstorage_store(bp_blockstorage_s *storage, char *blockhash, bp_btcblock_header_s *header, ev_uint64_t txn_count, char *txs, size_t txs_len)
 {
 	// Basically just store it in a btcblk, then index it
 	

@@ -1,5 +1,4 @@
 #pragma once
-
 #include <sys/socket.h>
 #include <event2/event.h>
 #include <event2/bufferevent.h>
@@ -48,6 +47,7 @@ struct bp_connection_t {
 	
 	char remote_addr[16];
 	unsigned short remote_port;
+	unsigned int connection_id;
 };
 typedef struct bp_connection_t bp_connection_s;
 
@@ -59,6 +59,7 @@ int bp_connection_verifypayload(bp_connection_s* connection);
 int bp_connection_readpayload(bp_connection_s *connection, unsigned char **payload);
 int bp_connection_sendmessage(bp_connection_s *connection, const char *command, unsigned char *payload, unsigned payload_length);
 int bp_connection_skipmessage(bp_connection_s *connection);
+int bp_connection_broadcast(bp_connection_s *origin, const char *command, unsigned char *payload, unsigned payload_length);
 ev_uint64_t bp_connection_readvarint(bp_connection_s *connection, size_t *position);
 
 #define BP_PROTO_NODE_NETWORK 1
