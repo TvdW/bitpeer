@@ -19,3 +19,8 @@ void bp_program_deinit(bp_program_s *program)
 	bp_blockstorage_deinit(&program->blockstorage);
 	bp_txpool_deinit(&program->txpool);
 }
+
+int bp_program_check_connections(bp_program_s *program)
+{
+	return 0;
+}

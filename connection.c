@@ -101,12 +101,16 @@ int bp_connection_connect(bp_connection_s *connection, bp_server_s *server, stru
 
 void bp_connection_free(bp_connection_s *connection)
 {
-	assert(connection->server->program->connections[connection->connection_id] == connection);
-	connection->server->program->connections[connection->connection_id] = NULL;
-	connection->server->program->cur_connections -= 1;
+	bp_program_s *program = connection->server->program;
+	
+	assert(program->connections[connection->connection_id] == connection);
+	program->connections[connection->connection_id] = NULL;
+	program->cur_connections -= 1;
 	
 	bufferevent_free(connection->sockbuf);
 	free(connection);
+	
+	bp_program_check_connections(program);
 }
 
 

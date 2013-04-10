@@ -52,17 +52,46 @@ int main(int argc, char** argv)
 	program.addrpool_size = 4096;
 	program.min_connections = 10;
 	program.max_connections = 1000;
-	program.listen_v4 = 8334;
-	program.listen_v6 = 0;
-	program.seed_host4 = 0x7f000001;
-	program.seed_port4 = 8333;
 	//program.reindex_blocks = 1;
 	program.relay_transactions = 1;
 	program.relay_blocks = 0;
 	program.txpool_size = 1024;
 	
-	program.my_ip4 = htonl(0x54544411);
-	program.my_ip4port = 8333;
+	/* Interpret the command line */
+	if (argc < 4) {
+		printf("Invalid command line arguments.\n");
+		printf("Syntax:     bitpeer [listen_port] [local_addr:port] [seed_addr:port]\n");
+		return EXIT_FAILURE;
+	}
+	
+	unsigned short listen_v4 = atoi(argv[1]);
+	if (listen_v4 == 0) {
+		printf("Invalid port specified\n");
+		return EXIT_FAILURE;
+	}
+	
+	struct sockaddr v4_sockaddr;
+	int v4_sockaddr_len = sizeof(v4_sockaddr);
+	if (evutil_parse_sockaddr_port(argv[2], &v4_sockaddr, &v4_sockaddr_len) < 0) {
+		printf("Invalid local_addr specified\n");
+		return EXIT_FAILURE;
+	}
+	if (v4_sockaddr.sa_family != AF_INET) {
+		printf("local_addr must be IPv4\n");
+		return EXIT_FAILURE;
+	}
+	struct sockaddr_in *v4_sockaddr_p = (struct sockaddr_in*)&v4_sockaddr;
+	if (v4_sockaddr_p->sin_port == 0) {
+		printf("No local_addr port specified\n");
+		return EXIT_FAILURE;
+	}
+	
+	struct sockaddr seed_sockaddr;
+	int seed_sockaddr_len = sizeof(seed_sockaddr);
+	if (evutil_parse_sockaddr_port(argv[3], &seed_sockaddr, &seed_sockaddr_len) < 0) {
+		printf("Invalid seed_addr specified\n");
+		return EXIT_FAILURE;
+	}
 	
 	/* Create the main loop */
 	bp_program_init(&program);
@@ -71,21 +100,15 @@ int main(int argc, char** argv)
 	
 	/* Create a server */
 	bp_server_s server;
-	bp_server_init(&server, &program, 4, (char*)&program.my_ip4, program.my_ip4port);
-	if (bp_server_listen(&server, program.listen_v4) < 0) {
+	bp_server_init(&server, &program, 4, (char*)&v4_sockaddr_p->sin_addr, v4_sockaddr_p->sin_port);
+	if (bp_server_listen(&server, listen_v4) < 0) {
 		return EXIT_FAILURE;
 	}
 	
 	/* We need to connect to one initial node in order to seed everything.
 	   We will not do this initial discovery ourselves. */
-	struct sockaddr_in sin;
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = htonl(program.seed_host4);
-	sin.sin_port = htons(program.seed_port4);
-	
 	bp_connection_s *seed_connection = malloc(sizeof(bp_connection_s));
-	bp_connection_connect(seed_connection, &server, (struct sockaddr*)&sin, sizeof(sin));
+	bp_connection_connect(seed_connection, &server, &seed_sockaddr, seed_sockaddr_len);
 	seed_connection->is_seed = 1;
 	
 	/* Run the loop */

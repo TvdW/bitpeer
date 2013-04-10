@@ -20,15 +20,6 @@ struct bp_program_t {
 	unsigned int min_connections;
 	unsigned int max_connections;
 	
-	unsigned short listen_v4;
-	unsigned short listen_v6;
-	
-	unsigned int seed_host4;
-	unsigned short seed_port4;
-	
-	unsigned int my_ip4;
-	unsigned short my_ip4port;
-	
 	unsigned int txpool_size;
 	
 	unsigned reindex_blocks: 1;
@@ -40,3 +31,4 @@ typedef struct bp_program_t bp_program_s;
 
 int bp_program_init(bp_program_s *program);
 void bp_program_deinit(bp_program_s *program);
+int bp_program_check_connections(bp_program_s *program);

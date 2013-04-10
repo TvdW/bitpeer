@@ -220,6 +220,8 @@ int bp_connection_readaddr(bp_connection_s *connection)
 	
 	free(payload);
 	
+	bp_program_check_connections(connection->server->program);
+	
 	return 0;
 }
 
@@ -329,6 +331,7 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 			}
 			
 			// TODO: we already have the checksum...
+			printf("Sending a tx\n");
 			bp_connection_sendmessage(connection, tx_command, (unsigned char*)tx->data, tx->length);
 		}
 	}
