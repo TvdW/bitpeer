@@ -3,6 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <event2/bufferevent.h>
+#include <event2/buffer.h>
 #include "commands.h"
 #include "client.h"
 #include "addrpool.h"

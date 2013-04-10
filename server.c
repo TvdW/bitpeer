@@ -14,8 +14,8 @@ int bp_server_init(bp_server_s *server, bp_program_s *program, int family, char 
 	if (family == 4) {
 		memset(server->local_addr, 0, 10);
 		memcpy(server->local_addr + 12, address, 4);
-		server->local_addr[10] = 0xFF;
-		server->local_addr[11] = 0xFF;
+		server->local_addr[10] = (char)0xFF;
+		server->local_addr[11] = (char)0xFF;
 	}
 	else {
 		memcpy(server->local_addr, address, 16);

@@ -1,12 +1,14 @@
 #pragma once
 #include <event2/event.h>
 #include "addrpool.h"
+#include "blockstorage.h"
 
 struct bp_program_t {
 	// References to other objects
 	struct event_base *eventbase;
 	ev_uint32_t network_magic;
 	bp_addrpool_s addrpool;
+	bp_blockstorage_s blockstorage;
 
 	// Settings
 	unsigned int addrpool_size;

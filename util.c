@@ -32,7 +32,7 @@ ev_uint64_t bp_readvarint(const unsigned char *buffer, size_t *position, size_t 
 	return 0;
 }
 
-const char v4prefix[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF};
+const char v4prefix[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (char)0xFF, (char)0xFF};
 int bp_addrtype(const char *address) {
 	if (memcmp(address, v4prefix, 12) == 0) {
 		return 4;

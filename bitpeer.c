@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "connection.h"
 #include "program.h"
@@ -11,6 +14,30 @@
 
 int main(int argc, char** argv)
 {
+	/* Set the CWD */
+	char *home = getenv("HOME");
+	if (!home) {
+		printf("Failed to load data directory\n");
+		return EXIT_FAILURE;
+	}
+	
+	char *datadir = malloc(strlen(home) + 10);
+	snprintf(datadir, strlen(home) + 10, "%s/.bitpeer", home);
+	
+	if (chdir(datadir) < 0) {
+		if (mkdir(datadir, 0777) < 0) {
+			printf("Failed to create data directory.\n");
+			return EXIT_FAILURE;
+		}
+		
+		if (chdir(datadir) < 0) {
+			printf("Failed to chdir\n");
+			return EXIT_FAILURE;
+		}
+	}
+	
+	free(datadir);
+	
 	/* For safety we do these protocol struct assertions */
 	assert(sizeof(bp_proto_message_s) == 24);
 	assert(sizeof(bp_proto_net_addr_s) == 26);
@@ -22,7 +49,8 @@ int main(int argc, char** argv)
 	/* Set the settings */
 	bp_program_s program;
 	program.addrpool_size = 4096;
-	program.min_connections  = 10;
+	program.min_connections = 10;
+	program.max_connections = 1000;
 	program.listen_v4 = 8334;
 	program.listen_v6 = 0;
 	program.seed_host4 = 0x7f000001;

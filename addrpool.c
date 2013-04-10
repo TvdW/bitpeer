@@ -27,7 +27,7 @@ int bp_addrpool_add(bp_addrpool_s *pool, bp_proto_net_addr_full_s *entry)
 {
 	int i;
 	for (i = 0; i < pool->size; i++) {
-		bp_proto_net_addr_full_s *cur = pool->raw_storage + (30 * i);
+		bp_proto_net_addr_full_s *cur = (bp_proto_net_addr_full_s*)(((char*)pool->raw_storage) + (30 * i));
 		
 		if (cur->time == 0) {
 			memcpy(cur, entry, 30);

@@ -16,7 +16,7 @@ void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx);
 int bp_connection_init(bp_connection_s *connection, bp_server_s *server)
 {
 	memset(connection, 0, sizeof(bp_connection_s));
-	connection->remote_addr[11] = connection->remote_addr[10] = 0xFF;
+	connection->remote_addr[11] = connection->remote_addr[10] = (char)0xFF;
 	connection->server = server;
 	return 0;
 }
@@ -25,7 +25,7 @@ int bp_connection_init_finish(bp_connection_s *connection, struct sockaddr *addr
 {
 	/* Set the address */
 	if (address->sa_family == AF_INET) {
-		connection->remote_addr[10] = connection->remote_addr[11] = 0xFF;
+		connection->remote_addr[10] = connection->remote_addr[11] = (char)0xFF;
 		struct sockaddr_in *addr = (struct sockaddr_in*)address;
 		memcpy(connection->remote_addr + 12, &addr->sin_addr, 4);
 		connection->remote_port = ntohs(addr->sin_port);

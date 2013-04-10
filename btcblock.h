@@ -1,6 +1,11 @@
 #pragma once
 #include <event2/event.h>
 
+struct bp_btcblock_tx_t {
+	int time; // delete this
+};
+typedef struct bp_btcblock_tx_t bp_btcblock_tx_s;
+
 struct bp_btcblock_header_t {
 	ev_uint32_t version;
 	char prevhash[32];
