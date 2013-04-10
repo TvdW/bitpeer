@@ -51,5 +51,5 @@ static void accept_conn_cb(struct evconnlistener *listener, evutil_socket_t fd,
 	printf("Incoming connection\n");
 	bp_server_s *server = ctx;
 	bp_connection_s *conn = malloc(sizeof(bp_connection_s));
-	bp_connection_init_socket(conn, server, fd);
+	bp_connection_init_socket(conn, server, address, socklen, fd);
 }

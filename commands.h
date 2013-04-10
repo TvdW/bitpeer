@@ -11,6 +11,7 @@ int bp_connection_sendgetaddr(bp_connection_s *connection);
 int bp_connection_readgetaddr(bp_connection_s *connection);
 //int bp_connection_sendaddr(bp_connection_s *connection);
 int bp_connection_readaddr(bp_connection_s *connection);
+int bp_connection_readinv(bp_connection_s *connection);
 
 extern const char version_command[], verack_command[], addr_command[], inv_command[],
 	getdata_command[], notfound_command[], getblocks_command[], getheaders_command[],

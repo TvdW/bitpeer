@@ -16,6 +16,7 @@ int main(int argc, char** argv)
 	assert(sizeof(bp_proto_net_addr_s) == 26);
 	assert(sizeof(bp_proto_net_addr_full_s) == 30);
 	assert(sizeof(bp_proto_version_s) == 80);
+	assert(sizeof(bp_proto_inv_s) == 36);
 	assert(sizeof(bp_btcblock_header_s) == 80);
 	
 	/* Set the settings */

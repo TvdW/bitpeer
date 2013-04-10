@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <event2/bufferevent.h>
 #include "commands.h"
 #include "client.h"
 #include "addrpool.h"
@@ -46,6 +47,10 @@ int bp_connection_readmessage(bp_connection_s *connection)
 	
 	if (memcmp(connection->current_message.command, getaddr_command, 12) == 0) {
 		return bp_connection_readgetaddr(connection);
+	}
+	
+	if (memcmp(connection->current_message.command, inv_command, 12) == 0) {
+		return bp_connection_readinv(connection);
 	}
 	
 	printf("Unknown message type \"%s\"\n", connection->current_message.command);
@@ -203,3 +208,35 @@ int bp_connection_readaddr(bp_connection_s *connection)
 
 
 /* inv commands */
+int bp_connection_readinv(bp_connection_s *connection)
+{
+	if (bp_connection_verifypayload(connection) < 0) {
+		bp_connection_skipmessage(connection);
+		return -1;
+	}
+	
+	size_t remaining_len = connection->current_message.length;
+	ev_uint64_t invcnt = bp_connection_readvarint(connection, &remaining_len);
+	
+	if (remaining_len != invcnt * 36) {
+		evbuffer_drain(bufferevent_get_input(connection->sockbuf), remaining_len);
+		return -1;
+	}
+	
+	printf("%lu invs (%lu)\n", invcnt, remaining_len);
+	ev_uint64_t i;
+	for (i = 0; i < invcnt; i++) {
+		bp_proto_inv_s inv_part;
+		bufferevent_read(connection->sockbuf, &inv_part, sizeof(inv_part));
+		printf("Inv type %d\n", inv_part.type);
+	}
+	
+	return 0;
+}
+
+
+
+
+
+
+

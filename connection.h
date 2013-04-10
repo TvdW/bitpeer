@@ -25,6 +25,11 @@ struct bp_proto_version_t {
 } __attribute__ ((__packed__));
 typedef struct bp_proto_version_t bp_proto_version_s;
 
+struct bp_proto_inv_t {
+	ev_uint32_t type;
+	char hash[32];
+};
+typedef struct bp_proto_inv_t bp_proto_inv_s;
 
 /* Connection structure */
 struct bp_connection_t {
@@ -47,11 +52,13 @@ struct bp_connection_t {
 typedef struct bp_connection_t bp_connection_s;
 
 int bp_connection_connect(bp_connection_s *connection, bp_server_s *server, struct sockaddr *address, int addrlen);
-int bp_connection_init_socket(bp_connection_s *connection, bp_server_s *server, evutil_socket_t fd);
+int bp_connection_init_socket(bp_connection_s *connection, bp_server_s *server, struct sockaddr *address, int addrlen, evutil_socket_t fd);
 void bp_connection_free(bp_connection_s *connection);
 
+int bp_connection_verifypayload(bp_connection_s* connection);
 int bp_connection_readpayload(bp_connection_s *connection, unsigned char **payload);
 int bp_connection_sendmessage(bp_connection_s *connection, const char *command, unsigned char *payload, unsigned payload_length);
 int bp_connection_skipmessage(bp_connection_s *connection);
+ev_uint64_t bp_connection_readvarint(bp_connection_s *connection, size_t *position);
 
 #define BP_PROTO_NODE_NETWORK 1
