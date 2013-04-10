@@ -2,6 +2,22 @@
 #include <stdio.h>
 #include "btcblock.h"
 
+
+struct bp_blockstorage_hashnode_t {
+	unsigned int num;
+	unsigned int checksum;
+	struct bp_blockstorage_hashnode_t *next;
+};
+typedef struct bp_blockstorage_hashnode_t bp_blockstorage_hashnode_s;
+
+
+struct bp_blockstorage_hashmap_t {
+	unsigned int size;
+	bp_blockstorage_hashnode_s **nodes;
+};
+typedef struct bp_blockstorage_hashmap_t bp_blockstorage_hashmap_s;
+
+
 struct bp_blockstorage_fd_t {
 	int fd;
 	int offset;
@@ -15,8 +31,8 @@ struct bp_blockstorage_t {
 	
 	char *mainchain;
 	char *orphans;
-	void *mainindex;
-	void *orphanindex;
+	bp_blockstorage_hashmap_s *mainindex;
+	bp_blockstorage_hashmap_s *orphanindex;
 	
 	FILE* mainchain_fd;
 	FILE* orphans_fd;
@@ -24,8 +40,6 @@ struct bp_blockstorage_t {
 	unsigned int mainchain_writepos;
 	unsigned int orphans_allocsize;
 	unsigned int orphans_writepos;
-	
-	int mainchain_height;
 };
 typedef struct bp_blockstorage_t bp_blockstorage_s;
 
@@ -40,3 +54,8 @@ int bp_blockstorage_hasblock(bp_blockstorage_s *storage, char *blockhash);
 int bp_blockstorage_reindex(bp_blockstorage_s *storage);
 int bp_blockstorage_rehash(bp_blockstorage_s *storage);
 char *bp_blockstorage_gettop(bp_blockstorage_s *storage);
+
+bp_blockstorage_hashmap_s *bp_blockstorage_hashmap_new(unsigned int size);
+int bp_blockstorage_hashmap_insert(bp_blockstorage_hashmap_s *map, char *blockhash, unsigned int num);
+bp_blockstorage_hashnode_s *bp_blockstorage_hashmap_getnode(bp_blockstorage_hashmap_s *map, char *blockhash);
+void bp_blockstorage_hashmap_free(bp_blockstorage_hashmap_s *map);

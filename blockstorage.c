@@ -19,7 +19,6 @@ int bp_blockstorage_init(bp_blockstorage_s *storage, void *_program)
 	// Load orphans.dat
 	bp_blockstorage_reindex(storage);
 	
-	
 	// Open the last block file we can find, so we can append
 	
 	
@@ -35,6 +34,8 @@ void bp_blockstorage_deinit(bp_blockstorage_s *storage)
 	free(storage->orphans);
 	if (storage->mainchain_fd) fclose(storage->mainchain_fd);
 	if (storage->orphans_fd) fclose(storage->orphans_fd);
+	if (storage->mainindex) bp_blockstorage_hashmap_free(storage->mainindex);
+	if (storage->orphanindex) bp_blockstorage_hashmap_free(storage->orphanindex);
 }
 
 
@@ -69,14 +70,21 @@ int bp_blockstorage_index(bp_blockstorage_s *storage, char *blockhash, char *pre
 		}
 	}
 	
+	// Maybe it's just a duplicate?
+	if (bp_blockstorage_hasblock(storage, blockhash) != 0) {
+		printf("Duplicate\n");
+		return 0;
+	}
+	
 	// Else? See if we know its parent
 	// if not, add it to the orphans
 	// if we do:
-	if (bp_blockstorage_hasblock(storage, blockhash) != 1) goto store_orphan;
+	if (bp_blockstorage_hasblock(storage, prevblock) == 0) goto store_orphan;
 	
 	// See if we can trace it back to some place on our main chain
 	// if we can: add that whole branch to the main chain, when it beats the height
 	// if we can't: add it to the orphans
+	printf("Sidechain\n");
 	
 	goto store_orphan;
 	
@@ -100,7 +108,7 @@ store_top:
 			assert(r == 1);
 		}
 		
-		storage->mainchain_height += 1;
+		bp_blockstorage_hashmap_insert(storage->mainindex, blockhash, storage->mainchain_writepos);
 		
 		memcpy(storage->mainchain + storage->mainchain_writepos, entry, 48);
 		storage->mainchain_writepos += 48;
@@ -129,6 +137,8 @@ store_orphan:
 			assert(r == 1);
 		}
 		
+		bp_blockstorage_hashmap_insert(storage->orphanindex, blockhash, storage->orphans_writepos);
+		
 		memcpy(storage->orphans + storage->orphans_writepos, entry, 80);
 		storage->orphans_writepos += 80;
 		
@@ -138,6 +148,14 @@ store_orphan:
 
 int bp_blockstorage_hasblock(bp_blockstorage_s *storage, char *blockhash)
 {
+	// TODO: actually check the hashes. With only 6 bytes of hashdata we just can't be sure.
+	
+	bp_blockstorage_hashnode_s *node = bp_blockstorage_hashmap_getnode(storage->mainindex, blockhash);
+	if (node) return 1;
+	
+	node = bp_blockstorage_hashmap_getnode(storage->orphanindex, blockhash);
+	if (node) return 2;
+	
 	return 0;
 }
 
@@ -156,7 +174,12 @@ int bp_blockstorage_reindex(bp_blockstorage_s *storage)
 	if (storage->orphans_fd != NULL) fclose(storage->orphans_fd);
 	storage->orphans_fd = 0;
 	
-	storage->mainchain_height = 0;
+	if (storage->mainindex) bp_blockstorage_hashmap_free(storage->mainindex);
+	storage->mainindex = NULL;
+	
+	if (storage->orphanindex) bp_blockstorage_hashmap_free(storage->orphanindex);
+	storage->orphanindex = NULL;
+	
 	storage->mainchain_allocsize = 0;
 	storage->orphans_allocsize = 0;
 	storage->mainchain_writepos = 0;
@@ -167,6 +190,8 @@ int bp_blockstorage_reindex(bp_blockstorage_s *storage)
 	storage->orphans_allocsize = 1000 * 80;
 	storage->mainchain = malloc(storage->mainchain_allocsize);
 	storage->orphans = malloc(storage->orphans_allocsize);
+	storage->mainindex = bp_blockstorage_hashmap_new(65536);
+	storage->orphanindex = bp_blockstorage_hashmap_new(1024);
 	
 	// Iterate over the blocks we have
 	int blkid;
@@ -230,17 +255,17 @@ int bp_blockstorage_reindex(bp_blockstorage_s *storage)
 		assert(r == 1);
 	}
 	
-	printf("Main chain: %d blocks\n", storage->mainchain_height);
+	printf("Main chain: %d blocks\n", storage->mainchain_writepos / 48);
 	
 	return 0;
 }
 
 char *bp_blockstorage_gettop(bp_blockstorage_s *storage)
 {
-	if (storage->mainchain_height == 0) return NULL;
+	if (storage->mainchain_writepos == 0) return NULL;
 	assert(storage->mainchain);
 	
-	char *top_hash = (storage->mainchain + (48 * storage->mainchain_height) - 48);
+	char *top_hash = (storage->mainchain + storage->mainchain_writepos - 48);
 	
 	return top_hash;
 }
@@ -248,4 +273,55 @@ char *bp_blockstorage_gettop(bp_blockstorage_s *storage)
 int bp_blockstorage_rehash(bp_blockstorage_s *storage)
 {
 	return 0;
+}
+
+
+bp_blockstorage_hashmap_s *bp_blockstorage_hashmap_new(unsigned int size)
+{
+	bp_blockstorage_hashmap_s *map = malloc(sizeof(bp_blockstorage_hashmap_s));
+	memset(map, 0, sizeof(bp_blockstorage_hashmap_s));
+	map->nodes = malloc(sizeof(void*) * size);
+	memset(map->nodes, 0, sizeof(void*) * size);
+	map->size = size;
+	
+	return map;
+}
+
+int bp_blockstorage_hashmap_insert(bp_blockstorage_hashmap_s *map, char *blockhash, unsigned int num)
+{
+	unsigned int hash = *(unsigned int*)blockhash;
+	unsigned int extra = *(unsigned int*)(blockhash+4);
+	
+	bp_blockstorage_hashnode_s *node = malloc(sizeof(bp_blockstorage_hashnode_s));
+	node->checksum = extra;
+	node->num = num;
+	node->next = NULL;
+	
+	// insert it
+	bp_blockstorage_hashnode_s **inspos = map->nodes + (hash % map->size);
+	while (*inspos != NULL) inspos = &(*inspos)->next;
+	
+	*inspos = node;
+	
+	return 0;
+}
+
+void bp_blockstorage_hashmap_free(bp_blockstorage_hashmap_s *map)
+{
+	// TODO
+}
+
+bp_blockstorage_hashnode_s *bp_blockstorage_hashmap_getnode(bp_blockstorage_hashmap_s *map, char *blockhash)
+{
+	unsigned int hash = *(unsigned int*)blockhash;
+	unsigned int extra = *(unsigned int*)(blockhash+4);
+	
+	bp_blockstorage_hashnode_s *node = map->nodes[hash % map->size];
+	while (node != NULL) {
+		if (node->checksum == extra) return node;
+		
+		node = node->next;
+	}
+	
+	return NULL;
 }
