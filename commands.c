@@ -222,6 +222,8 @@ int bp_connection_readaddr(bp_connection_s *connection)
 	
 	bp_program_check_connections(connection->server->program);
 	
+	bp_connection_broadcast(connection, addr_command, payload, connection->current_message.length);
+	
 	return 0;
 }
 

@@ -20,7 +20,8 @@ int bp_connection_init(bp_connection_s *connection, bp_server_s *server)
 	connection->server = server;
 	
 	if (server->program->cur_connections == server->program->max_connections) {
-		// TODO
+		printf("Too many connections\n");
+		return -1;
 	}
 	
 	int i, found = 0;
@@ -69,6 +70,7 @@ int bp_connection_init_socket(bp_connection_s *connection, bp_server_s *server, 
 {
 	int r = bp_connection_init(connection, server);
 	if (r < 0) {
+		evutil_closesocket(fd);
 		return r;
 	}
 	
