@@ -54,6 +54,8 @@ int bp_blockstorage_hasblock(bp_blockstorage_s *storage, char *blockhash);
 int bp_blockstorage_reindex(bp_blockstorage_s *storage);
 int bp_blockstorage_rehash(bp_blockstorage_s *storage);
 char *bp_blockstorage_gettop(bp_blockstorage_s *storage);
+unsigned int bp_blockstorage_getheight(bp_blockstorage_s *storage);
+char *bp_blockstorage_getatindex(bp_blockstorage_s *storage, unsigned int num);
 
 bp_blockstorage_hashmap_s *bp_blockstorage_hashmap_new(unsigned int size);
 int bp_blockstorage_hashmap_insert(bp_blockstorage_hashmap_s *map, char *blockhash, unsigned int num);

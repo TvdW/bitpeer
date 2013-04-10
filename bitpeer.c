@@ -55,6 +55,7 @@ int main(int argc, char** argv)
 	program.listen_v6 = 0;
 	program.seed_host4 = 0x7f000001;
 	program.seed_port4 = 8333;
+	//program.reindex_blocks = 1;
 	
 	program.my_ip4 = htonl(0x54544411);
 	program.my_ip4port = 8333;

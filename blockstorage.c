@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "blockstorage.h"
+#include "program.h"
 
 const unsigned char genesis[] = {
 	0x6f, 0xe2, 0x8c, 0x0a, 0xb6, 0xf1, 0xb3, 0x72,
@@ -12,18 +13,80 @@ const unsigned char genesis[] = {
 
 int bp_blockstorage_init(bp_blockstorage_s *storage, void *_program)
 {
+	bp_program_s *program = _program;
+	
 	memset(storage, 0, sizeof(bp_blockstorage_s));
 	storage->program = _program;
 	
+	int do_reindex = 0;
+	if (program->reindex_blocks) do_reindex = 1;
+	
 	// Load mainchain.dat
+	if (!do_reindex) {
+		FILE *mainchain = fopen("mainchain.dat", "rb");
+		if (mainchain) {
+			fseek(mainchain, 0, SEEK_END);
+			storage->mainchain_writepos = ftell(mainchain);
+			fseek(mainchain, 0, SEEK_SET);
+			storage->mainchain_allocsize = storage->mainchain_writepos + (48 * 1000);
+			storage->mainchain = malloc(storage->mainchain_allocsize);
+			int r = fread(storage->mainchain, storage->mainchain_writepos, 1, mainchain);
+			fclose(mainchain);
+
+			storage->mainchain_fd = fopen("mainchain.dat", "ab");
+			
+			if (r != 1 || !storage->mainchain_fd) {
+				printf("Failed to load cached chain\n");
+				do_reindex = 1;
+				free(storage->mainchain);
+				storage->mainchain = NULL;
+				storage->mainchain_writepos = 0;
+				storage->mainchain_allocsize = 0;
+			}
+		}
+	}
+	
 	// Load orphans.dat
-	bp_blockstorage_reindex(storage);
+	if (!do_reindex) {
+		FILE *orphans = fopen("orphans.dat", "rb");
+		if (orphans) {
+			fseek(orphans, 0, SEEK_END);
+			storage->orphans_writepos = ftell(orphans);
+			fseek(orphans, 0, SEEK_SET);
+			storage->orphans_allocsize = storage->orphans_writepos + (80 * 500);
+			storage->orphans = malloc(storage->orphans_allocsize);
+			int r = fread(storage->orphans, storage->orphans_writepos, 1, orphans);
+			fclose(orphans);
+			
+			storage->orphans_fd = fopen("orphans.dat", "ab");
+			
+			if ((r != 1 && storage->orphans_writepos != 0) || !storage->orphans_fd) {
+				printf("Failed to load cached orphan chain\n");
+				do_reindex = 1;
+				free(storage->orphans);
+				storage->orphans = NULL;
+				storage->orphans_writepos = 0;
+				storage->orphans_allocsize = 0;
+			}
+		}
+	}
+	
+	// TODO: verify the data we just loaded
+	
+	if (!do_reindex) {
+		if (bp_blockstorage_rehash(storage) < 0) {
+			do_reindex = 1;
+		}
+	}
+	
+	if (do_reindex) {
+		bp_blockstorage_reindex(storage);
+	}
+	
+	printf("Main chain: %d blocks\n", bp_blockstorage_getheight(storage));
 	
 	// Open the last block file we can find, so we can append
 	
-	
-	// Build our in-memory ID index
-	bp_blockstorage_rehash(storage);
 	
 	return 0;
 }
@@ -53,6 +116,8 @@ int bp_blockstorage_getfd(bp_blockstorage_s *storage, char *blockhash, bp_blocks
 
 int bp_blockstorage_index(bp_blockstorage_s *storage, char *blockhash, char *prevblock, unsigned int blockfile, unsigned int offset, unsigned int length, unsigned int checksum)
 {
+	int do_recheck = 0;
+	
 	// Top of the chain?
 	// if so, add it there
 	char *top_hash = bp_blockstorage_gettop(storage);
@@ -71,7 +136,7 @@ int bp_blockstorage_index(bp_blockstorage_s *storage, char *blockhash, char *pre
 	}
 	
 	// Maybe it's just a duplicate?
-	if (bp_blockstorage_hasblock(storage, blockhash) != 0) {
+	if (bp_blockstorage_hasblock(storage, blockhash) > 0) {
 		printf("Duplicate\n");
 		return 0;
 	}
@@ -86,6 +151,7 @@ int bp_blockstorage_index(bp_blockstorage_s *storage, char *blockhash, char *pre
 	// if we can't: add it to the orphans
 	printf("Sidechain\n");
 	
+	do_recheck = 1;
 	goto store_orphan;
 	
 store_top:
@@ -106,6 +172,7 @@ store_top:
 		if (storage->mainchain_fd) {
 			int r = fwrite(entry, 48, 1, storage->mainchain_fd);
 			assert(r == 1);
+			fflush(storage->mainchain_fd);
 		}
 		
 		bp_blockstorage_hashmap_insert(storage->mainindex, blockhash, storage->mainchain_writepos);
@@ -135,12 +202,17 @@ store_orphan:
 		if (storage->orphans_fd) {
 			int r = fwrite(entry, 80, 1, storage->orphans_fd);
 			assert(r == 1);
+			fflush(storage->orphans_fd);
 		}
 		
 		bp_blockstorage_hashmap_insert(storage->orphanindex, blockhash, storage->orphans_writepos);
 		
 		memcpy(storage->orphans + storage->orphans_writepos, entry, 80);
 		storage->orphans_writepos += 80;
+		
+		if (do_recheck) {
+			// TODO
+		}
 		
 		return 0;
 	}
@@ -198,7 +270,7 @@ int bp_blockstorage_reindex(bp_blockstorage_s *storage)
 	for (blkid = 0; blkid < 99999; blkid++) {
 		char filename[14];
 		sprintf(filename, "blk%.5d.dat", blkid);
-		FILE *f = fopen(filename, "r");
+		FILE *f = fopen(filename, "rb");
 		if (!f) {
 			break;
 		}
@@ -242,36 +314,60 @@ int bp_blockstorage_reindex(bp_blockstorage_s *storage)
 	}
 	
 	// While we now have the index, we still need to write it
-	storage->mainchain_fd = fopen("mainchain.dat", "w");
-	storage->orphans_fd = fopen("orphans.dat", "w");
+	storage->mainchain_fd = fopen("mainchain.dat", "wb");
+	storage->orphans_fd = fopen("orphans.dat", "wb");
 	
 	int r;
 	if (storage->mainchain_writepos) {
 		r = fwrite(storage->mainchain, storage->mainchain_writepos, 1, storage->mainchain_fd);
 		assert(r == 1);
+		fflush(storage->mainchain_fd);
 	}
 	if (storage->orphans_writepos) {
 		r = fwrite(storage->orphans, storage->orphans_writepos, 1, storage->orphans_fd);
 		assert(r == 1);
+		fflush(storage->orphans_fd);
 	}
-	
-	printf("Main chain: %d blocks\n", storage->mainchain_writepos / 48);
 	
 	return 0;
 }
 
 char *bp_blockstorage_gettop(bp_blockstorage_s *storage)
 {
-	if (storage->mainchain_writepos == 0) return NULL;
+	return bp_blockstorage_getatindex(storage, bp_blockstorage_getheight(storage)-1);
+}
+
+char *bp_blockstorage_getatindex(bp_blockstorage_s *storage, unsigned int num)
+{
 	assert(storage->mainchain);
+	if (bp_blockstorage_getheight(storage) <= num) {
+		return NULL;
+	}
 	
-	char *top_hash = (storage->mainchain + storage->mainchain_writepos - 48);
-	
-	return top_hash;
+	return storage->mainchain + (48 * num);
+}
+
+unsigned int bp_blockstorage_getheight(bp_blockstorage_s *storage)
+{
+	return storage->mainchain_writepos / 48;
 }
 
 int bp_blockstorage_rehash(bp_blockstorage_s *storage)
 {
+	if (storage->mainindex) bp_blockstorage_hashmap_free(storage->mainindex);
+	if (storage->orphanindex) bp_blockstorage_hashmap_free(storage->orphanindex);
+	
+	storage->mainindex = bp_blockstorage_hashmap_new(65536);
+	storage->orphanindex = bp_blockstorage_hashmap_new(1024);
+	
+	int i;
+	for (i = 0; i < storage->mainchain_writepos; i += 48) {
+		bp_blockstorage_hashmap_insert(storage->mainindex, storage->mainchain + i, i / 48);
+	}
+	for (i = 0; i < storage->orphans_writepos; i += 80) {
+		bp_blockstorage_hashmap_insert(storage->orphanindex, storage->orphans + i, i / 80);
+	}
+	
 	return 0;
 }
 
@@ -308,7 +404,18 @@ int bp_blockstorage_hashmap_insert(bp_blockstorage_hashmap_s *map, char *blockha
 
 void bp_blockstorage_hashmap_free(bp_blockstorage_hashmap_s *map)
 {
-	// TODO
+	if (map == NULL) return;
+	
+	unsigned int i;
+	for (i = 0; i < map->size; i++) {
+		bp_blockstorage_hashnode_s *node = map->nodes[i];
+		while (node != NULL) {
+			bp_blockstorage_hashnode_s *next = node->next;
+			free(node);
+			node = next;
+		}
+	}
+	free(map);
 }
 
 bp_blockstorage_hashnode_s *bp_blockstorage_hashmap_getnode(bp_blockstorage_hashmap_s *map, char *blockhash)

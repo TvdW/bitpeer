@@ -23,6 +23,8 @@ struct bp_program_t {
 	
 	unsigned int my_ip4;
 	unsigned short my_ip4port;
+	
+	unsigned reindex_blocks: 1;
 };
 typedef struct bp_program_t bp_program_s;
 

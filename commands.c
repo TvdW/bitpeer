@@ -8,6 +8,7 @@
 #include "client.h"
 #include "addrpool.h"
 #include "util.h"
+#include "blockstorage.h"
 
 // Constants for the network protocol. Ugly but efficient
 const ev_int32_t client_version =  70001;
@@ -230,6 +231,15 @@ int bp_connection_readinv(bp_connection_s *connection)
 		bp_proto_inv_s inv_part;
 		bufferevent_read(connection->sockbuf, &inv_part, sizeof(inv_part));
 		printf("Inv type %d\n", inv_part.type);
+		
+		if (inv_part.type == 2) { // block
+			if (bp_blockstorage_hasblock(&connection->server->program->blockstorage, inv_part.hash) > 0) {
+				printf("We have it though\n");
+			}
+			else {
+				printf("We don't have it yet\n");
+			}
+		}
 	}
 	
 	return 0;
