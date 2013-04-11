@@ -214,12 +214,19 @@ int bp_connection_readaddr(bp_connection_s *connection)
 	}
 	
 	// Iterate over all addresses
+	int any_new = 0;
 	for (; position < connection->current_message.length; position += 30) {
-		bp_addrpool_add(&connection->server->program->addrpool, (bp_proto_net_addr_full_s*) (payload + position));
+		bp_proto_net_addr_full_s *entry = (bp_proto_net_addr_full_s*) (payload + position);
+		if (!bp_addrpool_hasaddr(&connection->server->program->addrpool, entry)) {
+			bp_addrpool_add(&connection->server->program->addrpool, (bp_proto_net_addr_full_s*) (payload + position));
+			any_new = 1;
+		}
 	}
 	
-	printf("Relaying addrs\n");
-	bp_connection_broadcast(connection, addr_command, payload, connection->current_message.length);
+	if (any_new) {
+		printf("Relaying addrs\n");
+		bp_connection_broadcast(connection, addr_command, payload, connection->current_message.length);
+	}
 	
 	free(payload);
 	

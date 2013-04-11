@@ -49,8 +49,8 @@ int main(int argc, char** argv)
 	/* Set the settings */
 	bp_program_s program;
 	memset(&program, 0, sizeof(program));
-	program.addrpool_size = 4096;
-	program.min_connections = 256;
+	program.addrpool_size = 10240;
+	program.min_connections = 1024;
 	program.max_connections = 4096;
 	//program.reindex_blocks = 1;
 	program.relay_transactions = 1;

@@ -31,3 +31,4 @@ void bp_addrpool_deinit(bp_addrpool_s *pool);
 
 int bp_addrpool_add(bp_addrpool_s *pool, bp_proto_net_addr_full_s *entry);
 int bp_addrpool_read(bp_addrpool_s *pool, bp_proto_net_addr_full_s **target, int validator(bp_proto_net_addr_full_s *entry, void *ctx), void *ctx);
+int bp_addrpool_hasaddr(bp_addrpool_s *pool, bp_proto_net_addr_full_s *addr);
