@@ -16,6 +16,12 @@ Usage
 Some settings are available in `bitpeer.c`.
 
 
+Requirements
+============
+
+The code currently only requires `libevent2` and `openssl`.
+
+
 Caution
 =======
 
