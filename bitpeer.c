@@ -94,7 +94,7 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 	
-	if (argv >= 5) {
+	if (argc >= 5) {
 		program.min_connections = atoi(argv[4]);
 	}
 	
