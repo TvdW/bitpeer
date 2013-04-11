@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <assert.h>
 #include <string.h>
 #include <openssl/sha.h>
@@ -19,9 +20,9 @@ int bp_connection_init(bp_connection_s *connection, bp_server_s *server)
 	memset(connection, 0, sizeof(bp_connection_s));
 	connection->remote_addr[11] = connection->remote_addr[10] = (char)0xFF;
 	connection->server = server;
+	connection->connection_id = INT_MAX;
 	
 	if (server->program->cur_connections == server->program->max_connections) {
-		// TODO: This will cause connection_id to be <random> which will cause issues when free() gets called
 		write_log(3, "Rejecting incoming connection because we are at our limit");
 		return -1;
 	}
@@ -112,9 +113,11 @@ void bp_connection_free(bp_connection_s *connection)
 {
 	bp_program_s *program = connection->server->program;
 	
-	assert(program->connections[connection->connection_id] == connection);
-	program->connections[connection->connection_id] = NULL;
-	program->cur_connections -= 1;
+	if (connection->connection_id != INT_MAX) {
+		assert(program->connections[connection->connection_id] == connection);
+		program->connections[connection->connection_id] = NULL;
+		program->cur_connections -= 1;
+	}
 	
 	if (connection->sockbuf) bufferevent_free(connection->sockbuf);
 	free(connection);

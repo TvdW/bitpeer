@@ -97,7 +97,6 @@ int bp_connection_sendversion(bp_connection_s *connection)
 	unsigned int start_height = bp_blockstorage_getheight(&connection->server->program->blockstorage);
 	memcpy(payload + 80 + sizeof(useragent_str), &start_height, 4);
 	
-	// TODO: relay
 	if (connection->server->program->relay_transactions)
 		payload[84 + sizeof(useragent_str)] = 1;
 	
@@ -112,7 +111,7 @@ int bp_connection_readversion(bp_connection_s *connection)
 	}
 	
 	if (connection->peer_version) {
-		// TODO: This is bad. Can we just skip it?
+		// This is bad. Can we just skip it?
 		bp_connection_skipmessage(connection);
 		return -1;
 	}
@@ -127,8 +126,8 @@ int bp_connection_readversion(bp_connection_s *connection)
 	write_log(2, "Exchanging version messages (incoming), peer version protocol %d", peerversion->version);
 	
 	if (peerversion->version <= 0) {
-		// TODO: fatal error
 		free(payload);
+		bp_connection_free(connection); // Disconnect
 		return -1;
 	}
 	
