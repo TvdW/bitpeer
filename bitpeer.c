@@ -50,7 +50,7 @@ int main(int argc, char** argv)
 	bp_program_s program;
 	memset(&program, 0, sizeof(program));
 	program.addrpool_size = 10240;
-	program.min_connections = 1;
+	program.min_connections = 32;
 	program.max_connections = 4096;
 	//program.reindex_blocks = 1;
 	program.relay_transactions = 1;
@@ -92,6 +92,10 @@ int main(int argc, char** argv)
 	if (evutil_parse_sockaddr_port(argv[3], &seed_sockaddr, &seed_sockaddr_len) < 0) {
 		printf("Invalid seed_addr specified\n");
 		return EXIT_FAILURE;
+	}
+	
+	if (argv >= 5) {
+		program.min_connections = atoi(argv[4]);
 	}
 	
 	/* Create the main loop */
