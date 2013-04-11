@@ -14,6 +14,7 @@ int bp_connection_readgetaddr(bp_connection_s *connection);
 int bp_connection_readaddr(bp_connection_s *connection);
 int bp_connection_readinv(bp_connection_s *connection);
 int bp_connection_readtx(bp_connection_s *connection);
+int bp_connection_readblock(bp_connection_s *connection);
 int bp_connection_sendgetdata(bp_connection_s *connection, int type, char *hash);
 int bp_connection_readgetdata(bp_connection_s *connection);
 

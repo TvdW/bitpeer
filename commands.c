@@ -12,6 +12,7 @@
 #include "blockstorage.h"
 #include "txpool.h"
 #include "txverify.h"
+#include "blockverify.h"
 #include "log.h"
 
 // Constants for the network protocol. Ugly but efficient
@@ -65,6 +66,10 @@ int bp_connection_readmessage(bp_connection_s *connection)
 	
 	if (memcmp(connection->current_message.command, getdata_command, 12) == 0) {
 		return bp_connection_readgetdata(connection);
+	}
+	
+	if (memcmp(connection->current_message.command, block_command, 12) == 0) {
+		return bp_connection_readblock(connection);
 	}
 	
 	write_log(3, "Unknown message type \"%s\"", connection->current_message.command);
@@ -262,6 +267,8 @@ int bp_connection_readinv(bp_connection_s *connection)
 			}
 			else {
 				//printf("We don't have it yet\n");
+				write_log(2, "Requesting block info");
+				bp_connection_sendgetdata(connection, 2, inv_part.hash);
 			}
 		}
 		else if (inv_part.type == 1) { // tx
@@ -287,7 +294,7 @@ int bp_connection_readtx(bp_connection_s *connection)
 		return -1;
 	}
 	
-	if (bp_tx_verify((char*)payload, connection->current_message.length) < 0) {
+	if (bp_tx_verify((char*)payload, connection->current_message.length, NULL) < 0) {
 		write_log(2, "Invalid tx received");
 		free(payload);
 		return -1;
@@ -310,6 +317,57 @@ int bp_connection_readtx(bp_connection_s *connection)
 	announcement[2] = announcement[3] = announcement[4] = 0;
 	memcpy(announcement+5, hash2, 32);
 	
+	return bp_connection_broadcast(connection, inv_command, announcement, 37);
+}
+
+int bp_connection_readblock(bp_connection_s *connection)
+{
+	if (connection->current_message.length < sizeof(bp_btcblock_header_s)) {
+		bp_connection_skipmessage(connection);
+		return -1;
+	}
+	
+	unsigned char *payload;
+	if (bp_connection_readpayload(connection, &payload) < 0) {
+		return -1;
+	}
+	
+	bp_btcblock_header_s *header = (bp_btcblock_header_s*)payload;
+	char *txs = (char*)payload + sizeof(*header);
+	size_t txs_len = connection->current_message.length - sizeof(*header);
+	
+	if (bp_block_verify(header, txs, txs_len) < 0) {
+		write_log(3, "Malformed block received");
+		free(payload);
+		return -1;
+	}
+	
+	unsigned char hash1[SHA256_DIGEST_LENGTH];
+	unsigned char hash2[SHA256_DIGEST_LENGTH];
+	SHA256((unsigned char*)header, sizeof(*header), hash1);
+	SHA256(hash1, SHA256_DIGEST_LENGTH, hash2);
+	
+	// Do we already have it?
+	if (bp_blockstorage_hasblock(&connection->server->program->blockstorage, (char*)hash2) != 0) {
+		write_log(1, "Not storing block we already have");
+		free(payload);
+		return -1;
+	}
+	
+	// TODO: something this large in memory... bad idea!
+	bp_blockstorage_store(&connection->server->program->blockstorage, (char*)hash2, header, txs, txs_len);
+	write_log(2, "Stored a new block");
+	
+	// Broadcast
+	unsigned char announcement[37];
+	announcement[0] = 1;
+	announcement[1] = 2;
+	announcement[2] = announcement[3] = announcement[4] = 0;
+	memcpy(announcement+5, hash2, 32);
+	
+	free(payload);
+	
+	// TODO: don't broadcast to certain clients, based on last known chain height
 	return bp_connection_broadcast(connection, inv_command, announcement, 37);
 }
 
@@ -345,6 +403,16 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 			// TODO: we already have the checksum...
 			write_log(2, "Sending a tx block to peer");
 			bp_connection_sendmessage(connection, tx_command, (unsigned char*)tx->data, tx->length);
+		
+		} else if (inv_part.type == 2) {
+			bp_blockstorage_fd_s block_fd;
+			if (bp_blockstorage_getfd(&connection->server->program->blockstorage, inv_part.hash, &block_fd) < 0) {
+				write_log(2, "Peer requested unknown block");
+				continue;
+			}
+			
+			write_log(2, "Sent a block");
+			bp_connection_sendfile(connection, block_command, block_fd.fd, block_fd.offset, block_fd.size, block_fd.checksum);
 		}
 	}
 	
@@ -361,10 +429,3 @@ int bp_connection_sendgetdata(bp_connection_s *connection, int type, char *hash)
 	
 	return bp_connection_sendmessage(connection, getdata_command, sendblock, 37);
 }
-
-
-
-
-
-
-

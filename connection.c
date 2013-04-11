@@ -232,6 +232,20 @@ int bp_connection_broadcast(bp_connection_s *origin, const char *command, unsign
 	return 0;
 }
 
+int bp_connection_sendfile(bp_connection_s *connection, const char *command, int fd, unsigned int offset, unsigned int size, unsigned int checksum)
+{
+	bp_proto_message_s header;
+	header.magic = connection->server->program->network_magic;
+	memcpy(header.command, command, 12);
+	header.length = size;
+	header.checksum = checksum;
+	
+	bufferevent_write(connection->sockbuf, &header, sizeof(header));
+	evbuffer_add_file(bufferevent_get_output(connection->sockbuf), fd, offset, size);
+	
+	return 0;
+}
+
 
 /* Protocol recv functions */
 ev_uint64_t bp_connection_readvarint(bp_connection_s *connection, size_t *len)

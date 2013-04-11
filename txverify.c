@@ -2,7 +2,7 @@
 #include "txverify.h"
 #include "util.h"
 
-int bp_tx_verify(char *tx, size_t tx_len)
+int bp_tx_verify(char *tx, size_t tx_len, size_t *store_length)
 {
 	if (tx_len < 60) return -1;
 	
@@ -49,7 +49,14 @@ int bp_tx_verify(char *tx, size_t tx_len)
 		(void)(value);
 	}
 	
-	if (tx_len - position != 4) return -1; // only timestamp left
+	position += 4;
+	
+	if (!store_length) {
+		if (tx_len - position != 0) return -1; // data not finished
+	}
+	else {
+		*store_length = position;
+	}
 	
 	return 0;
 }

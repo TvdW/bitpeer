@@ -1,7 +1,9 @@
 #include <openssl/sha.h>
+#include <sys/stat.h>
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include "blockstorage.h"
 #include "program.h"
 #include "log.h"
@@ -44,6 +46,8 @@ int bp_blockstorage_init(bp_blockstorage_s *storage, void *_program)
 				storage->mainchain_writepos = 0;
 				storage->mainchain_allocsize = 0;
 			}
+		} else {
+			do_reindex = 1;
 		}
 	}
 	
@@ -69,6 +73,8 @@ int bp_blockstorage_init(bp_blockstorage_s *storage, void *_program)
 				storage->orphans_writepos = 0;
 				storage->orphans_allocsize = 0;
 			}
+		} else {
+			do_reindex = 1;
 		}
 	}
 	
@@ -87,7 +93,43 @@ int bp_blockstorage_init(bp_blockstorage_s *storage, void *_program)
 	write_log(2, "Main chain contains %d blocks", bp_blockstorage_getheight(storage));
 	
 	// Open the last block file we can find, so we can append
+	int i = 0;
+	FILE *last_good_fd = NULL;
+	while (1) {
+		char filename[13];
+		sprintf(filename, "blk%.5d.dat", i);
+		FILE *fd = fopen(filename, "rb");
+		if (fd) {
+			if (last_good_fd) fclose(last_good_fd);
+			last_good_fd = fd;
+		}
+		else {
+			i -= 1;
+			break;
+		}
+		i += 1;
+	}
 	
+	if (last_good_fd) {
+		fseek(last_good_fd, 0, SEEK_END);
+		storage->currentblock_offset = ftell(last_good_fd);
+		fclose(last_good_fd);
+		
+		storage->currentblock_num = i;
+		char filename[13];
+		sprintf(filename, "blk%.5d.dat", i);
+		storage->currentblock_fd = fopen(filename, "ab");
+		assert(storage->currentblock_fd);
+		
+		write_log(2, "Resuming block storage in '%s' at position %u", filename, storage->currentblock_offset);
+	}
+	else {
+		// Begin a new storage chain
+		write_log(2, "Creating a new block chain storage");
+		storage->currentblock_fd = fopen("blk00000.dat", "w");
+		storage->currentblock_num = 0;
+		storage->currentblock_offset = 0;
+	}
 	
 	return 0;
 }
@@ -103,16 +145,89 @@ void bp_blockstorage_deinit(bp_blockstorage_s *storage)
 }
 
 
-int bp_blockstorage_store(bp_blockstorage_s *storage, char *blockhash, bp_btcblock_header_s *header, ev_uint64_t txn_count, char *txs, size_t txs_len)
+int bp_blockstorage_store(bp_blockstorage_s *storage, char *blockhash, bp_btcblock_header_s *header, char *txs, size_t txs_len)
 {
 	// Basically just store it in a btcblk, then index it
+	assert(storage->currentblock_fd);
+	
+	char headerdata[8];
+	memcpy(headerdata, &((bp_program_s*)storage->program)->network_magic, 4);
+	unsigned int total_size = sizeof(*header) + txs_len;
+	memcpy(headerdata+4, &total_size, 4);
+	int r = fwrite(headerdata, 8, 1, storage->currentblock_fd);
+	assert(r == 1);
+	r = fwrite(header, sizeof(*header), 1, storage->currentblock_fd);
+	assert(r == 1);
+	r = fwrite(txs, txs_len, 1, storage->currentblock_fd);
+	assert(r == 1);
+	fflush(storage->currentblock_fd);
+	
+	// Compute the checksum
+	unsigned int checksum;
+	unsigned char hash1[SHA256_DIGEST_LENGTH], hash2[SHA256_DIGEST_LENGTH];
+	SHA256_CTX ctx;
+	SHA256_Init(&ctx);
+	SHA256_Update(&ctx, header, sizeof(*header));
+	SHA256_Update(&ctx, txs, txs_len);
+	SHA256_Final(hash1, &ctx);
+	SHA256(hash1, SHA256_DIGEST_LENGTH, hash2);
+	checksum = *(unsigned int*)hash2;
+	
+	bp_blockstorage_index(storage, blockhash, header->prevhash, storage->currentblock_num, storage->currentblock_offset + 8, total_size, checksum);
+	
+	storage->currentblock_offset += total_size + 8;
 	
 	return 0;
 }
 
-int bp_blockstorage_getfd(bp_blockstorage_s *storage, char *blockhash, bp_blockstorage_fd_s **fd)
+int bp_blockstorage_getfd(bp_blockstorage_s *storage, char *blockhash, bp_blockstorage_fd_s *fd)
 {
-	return 0;
+	// TODO: there may be more nodes on the linked list
+	
+	bp_blockstorage_hashnode_s *node = bp_blockstorage_hashmap_getnode(storage->mainindex, blockhash);
+	if (node) {
+		// Get the mainchain block
+		char *entry = storage->mainchain + (48 * node->num);
+		if (memcmp(entry, blockhash, 32) != 0) return -1; // TODO: this.
+		
+		unsigned int blockfile = *(unsigned int*)(entry+32);
+		unsigned int offset = *(unsigned int*)(entry+36);
+		unsigned int size = *(unsigned int*)(entry+40);
+		unsigned int checksum = *(unsigned int*)(entry+44);
+		
+		char filename[13];
+		sprintf(filename, "blk%.5d.dat", blockfile);
+		fd->fd = open(filename, O_RDONLY);
+		assert(fd->fd >= 0);
+		fd->offset = offset;
+		fd->size = size;
+		fd->checksum = checksum;
+		
+		return 0;
+	}
+	else {
+		node = bp_blockstorage_hashmap_getnode(storage->orphanindex, blockhash);
+		if (!node) return -1;
+		
+		// Get the orphan block
+		char *entry = storage->orphans + (80 * node->num);
+		if (memcmp(entry, blockhash, 32) != 0) return -1; // TODO: this.
+		
+		unsigned int blockfile = *(unsigned int*)(entry+64);
+		unsigned int offset = *(unsigned int*)(entry+68);
+		unsigned int size = *(unsigned int*)(entry+72);
+		unsigned int checksum = *(unsigned int*)(entry+76);
+		
+		char filename[13];
+		sprintf(filename, "blk%.5d.dat", blockfile);
+		fd->fd = open(filename, O_RDONLY);
+		assert(fd->fd >= 0);
+		fd->offset = offset;
+		fd->size = size;
+		fd->checksum = checksum;
+		
+		return 0;
+	}
 }
 
 int bp_blockstorage_index(bp_blockstorage_s *storage, char *blockhash, char *prevblock, unsigned int blockfile, unsigned int offset, unsigned int length, unsigned int checksum)
@@ -173,7 +288,7 @@ store_top:
 			fflush(storage->mainchain_fd);
 		}
 		
-		bp_blockstorage_hashmap_insert(storage->mainindex, blockhash, storage->mainchain_writepos);
+		bp_blockstorage_hashmap_insert(storage->mainindex, blockhash, storage->mainchain_writepos / 48);
 		
 		memcpy(storage->mainchain + storage->mainchain_writepos, entry, 48);
 		storage->mainchain_writepos += 48;
@@ -203,7 +318,7 @@ store_orphan:
 			fflush(storage->orphans_fd);
 		}
 		
-		bp_blockstorage_hashmap_insert(storage->orphanindex, blockhash, storage->orphans_writepos);
+		bp_blockstorage_hashmap_insert(storage->orphanindex, blockhash, storage->orphans_writepos / 80);
 		
 		memcpy(storage->orphans + storage->orphans_writepos, entry, 80);
 		storage->orphans_writepos += 80;
@@ -273,7 +388,7 @@ int bp_blockstorage_reindex(bp_blockstorage_s *storage)
 			break;
 		}
 		
-		write_log(1, "Indexing %s", filename);
+		write_log(2, "Indexing %s", filename);
 		
 		// Index one block
 		// TODO: check magic
