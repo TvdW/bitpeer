@@ -12,3 +12,11 @@ Usage
     ./bitpeer [listen_port] [announce_addr:port] [seed_addr:port]
 
     ./bitpeer 8333 1.2.3.4:8333 5.6.7.8:8333
+
+Some settings are available in `bitpeer.c`.
+
+
+Caution
+=======
+
+This is experimental software, and while it is currently very fast at relaying certain commands, other commands are not yet implemented. Until block relaying is implemented, the relay should not be used on a large scale, as that could be potentially very bad for the bitcoin network.
