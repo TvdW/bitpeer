@@ -20,6 +20,7 @@ int bp_connection_init(bp_connection_s *connection, bp_server_s *server)
 	connection->server = server;
 	
 	if (server->program->cur_connections == server->program->max_connections) {
+		// TODO: This will cause connection_id to be <random> which will cause issues when free() gets called
 		printf("Too many connections\n");
 		return -1;
 	}
@@ -58,7 +59,11 @@ int bp_connection_init_finish(bp_connection_s *connection, struct sockaddr *addr
 	/* Set the event callbacks */
 	bufferevent_setcb(connection->sockbuf, bp_connection_readcb, NULL, bp_connection_eventcb, connection);
 	
+	struct timeval timeout;
+	timeout.tv_sec = 120;
+	timeout.tv_usec = 0;
 	bufferevent_enable(connection->sockbuf, EV_READ|EV_WRITE);
+	bufferevent_set_timeouts(connection->sockbuf, &timeout, &timeout);
 	
 	/* Do the handshake dance */
 	bp_connection_sendversion(connection);
@@ -94,6 +99,7 @@ int bp_connection_connect(bp_connection_s *connection, bp_server_s *server, stru
 	
 	if (bufferevent_socket_connect(connection->sockbuf, address, addrlen) < 0) {
 		bufferevent_free(connection->sockbuf);
+		connection->sockbuf = NULL;
 		return -1;
 	}
 	
@@ -109,10 +115,8 @@ void bp_connection_free(bp_connection_s *connection)
 	program->connections[connection->connection_id] = NULL;
 	program->cur_connections -= 1;
 	
-	bufferevent_free(connection->sockbuf);
+	if (connection->sockbuf) bufferevent_free(connection->sockbuf);
 	free(connection);
-	
-	bp_program_check_connections(program);
 }
 
 
@@ -120,6 +124,7 @@ void bp_connection_free(bp_connection_s *connection)
 void bp_connection_readcb(struct bufferevent *bev, void *ctx)
 {
 	bp_connection_s *connection = (bp_connection_s*)ctx;
+	assert(connection->sockbuf == bev);
 	struct evbuffer *input = bufferevent_get_input(bev);
 	size_t len = evbuffer_get_length(input);
 	printf("Read callback (%li)\n", len);
@@ -160,10 +165,15 @@ begin:
 void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx)
 {
 	bp_connection_s *connection = (bp_connection_s*)ctx;
+	bp_program_s *program = connection->server->program;
+	
+	assert(connection->sockbuf == bev);
 	printf("Event %d callback\n", events);
 	
-	if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) {
+	if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) || events & BEV_EVENT_TIMEOUT) {
 		bp_connection_free(connection);
+		
+		bp_program_check_connections(program);
 	}
 }
 
@@ -208,6 +218,7 @@ int bp_connection_broadcast(bp_connection_s *origin, const char *command, unsign
 		bp_connection_s *conn = origin->server->program->connections[i];
 		if (conn == NULL || conn == origin) continue;
 		if (!conn->handsshaken) continue;
+		assert(conn->version_sent && conn->verack_recv);
 		
 		bufferevent_write(conn->sockbuf, &header, sizeof(header));
 		if (payload_length)

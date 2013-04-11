@@ -14,6 +14,7 @@ int bp_addrpool_init(bp_addrpool_s *pool, void *_program)
 	memset(pool->raw_storage, 0, program->addrpool_size * 30);
 	pool->size = program->addrpool_size;
 	pool->fillsize = 0;
+	pool->readpos = 0;
 	
 	return 0;
 }
@@ -31,7 +32,27 @@ int bp_addrpool_add(bp_addrpool_s *pool, bp_proto_net_addr_full_s *entry)
 		
 		if (cur->time == 0) {
 			memcpy(cur, entry, 30);
-			pool->fillsize += 1;
+			if (pool->fillsize < pool->size) pool->fillsize += 1;
+			return 0;
+		}
+	}
+	
+	return -1;
+}
+
+int bp_addrpool_read(bp_addrpool_s *pool, bp_proto_net_addr_full_s **target, int validator(bp_proto_net_addr_full_s *entry, void *ctx), void *ctx)
+{
+	if (pool->fillsize == 0) return 0;
+	
+	int i;
+	for (i = 0; i < pool->size; i++) {
+		int pos = (i + pool->readpos) % pool->size;
+		if (pos > pool->fillsize) continue;
+		
+		bp_proto_net_addr_full_s *entry = ((bp_proto_net_addr_full_s*)pool->raw_storage) + pos;
+		if (validator(entry, ctx) == 0) {
+			*target = entry;
+			pool->readpos = (pos + 1) % pool->size;
 			return 0;
 		}
 	}

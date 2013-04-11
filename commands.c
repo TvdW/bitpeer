@@ -218,11 +218,12 @@ int bp_connection_readaddr(bp_connection_s *connection)
 		bp_addrpool_add(&connection->server->program->addrpool, (bp_proto_net_addr_full_s*) (payload + position));
 	}
 	
+	printf("Relaying addrs\n");
+	bp_connection_broadcast(connection, addr_command, payload, connection->current_message.length);
+	
 	free(payload);
 	
 	bp_program_check_connections(connection->server->program);
-	
-	bp_connection_broadcast(connection, addr_command, payload, connection->current_message.length);
 	
 	return 0;
 }

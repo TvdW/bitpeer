@@ -50,8 +50,8 @@ int main(int argc, char** argv)
 	bp_program_s program;
 	memset(&program, 0, sizeof(program));
 	program.addrpool_size = 4096;
-	program.min_connections = 10;
-	program.max_connections = 1000;
+	program.min_connections = 256;
+	program.max_connections = 4096;
 	//program.reindex_blocks = 1;
 	program.relay_transactions = 1;
 	program.relay_blocks = 0;
@@ -82,6 +82,7 @@ int main(int argc, char** argv)
 	}
 	struct sockaddr_in *v4_sockaddr_p = (struct sockaddr_in*)&v4_sockaddr;
 	if (v4_sockaddr_p->sin_port == 0) {
+		
 		printf("No local_addr port specified\n");
 		return EXIT_FAILURE;
 	}
@@ -100,6 +101,7 @@ int main(int argc, char** argv)
 	
 	/* Create a server */
 	bp_server_s server;
+	program.server_v4 = &server;
 	bp_server_init(&server, &program, 4, (char*)&v4_sockaddr_p->sin_addr, v4_sockaddr_p->sin_port);
 	if (bp_server_listen(&server, listen_v4) < 0) {
 		return EXIT_FAILURE;

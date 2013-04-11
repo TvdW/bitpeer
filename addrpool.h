@@ -21,6 +21,7 @@ struct bp_addrpool_t {
 	void *raw_storage;
 	unsigned int size;
 	unsigned int fillsize;
+	unsigned int readpos;
 };
 typedef struct bp_addrpool_t bp_addrpool_s;
 
@@ -29,3 +30,4 @@ int bp_addrpool_init(bp_addrpool_s *pool, void *program);
 void bp_addrpool_deinit(bp_addrpool_s *pool);
 
 int bp_addrpool_add(bp_addrpool_s *pool, bp_proto_net_addr_full_s *entry);
+int bp_addrpool_read(bp_addrpool_s *pool, bp_proto_net_addr_full_s **target, int validator(bp_proto_net_addr_full_s *entry, void *ctx), void *ctx);

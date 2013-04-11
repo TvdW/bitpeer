@@ -12,6 +12,8 @@ struct bp_program_t {
 	bp_blockstorage_s blockstorage;
 	bp_txpool_s txpool;
 	
+	void* server_v4;
+	
 	void** connections;
 	unsigned int cur_connections;
 	
