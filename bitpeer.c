@@ -50,7 +50,7 @@ int main(int argc, char** argv)
 	bp_program_s program;
 	memset(&program, 0, sizeof(program));
 	program.addrpool_size = 10240;
-	program.min_connections = 1024;
+	program.min_connections = 1;
 	program.max_connections = 4096;
 	//program.reindex_blocks = 1;
 	program.relay_transactions = 1;

@@ -11,6 +11,7 @@
 #include "util.h"
 #include "blockstorage.h"
 #include "txpool.h"
+#include "txverify.h"
 
 // Constants for the network protocol. Ugly but efficient
 const ev_int32_t client_version =  70001;
@@ -286,6 +287,12 @@ int bp_connection_readtx(bp_connection_s *connection)
 {
 	unsigned char *payload;
 	if (bp_connection_readpayload(connection, &payload) < 0) {
+		return -1;
+	}
+	
+	if (bp_tx_verify((char*)payload, connection->current_message.length) < 0) {
+		printf("Invalid tx received\n");
+		free(payload);
 		return -1;
 	}
 	

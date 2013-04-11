@@ -42,7 +42,7 @@ int bp_addrpool_add(bp_addrpool_s *pool, bp_proto_net_addr_full_s *entry)
 
 int bp_addrpool_read(bp_addrpool_s *pool, bp_proto_net_addr_full_s **target, int validator(bp_proto_net_addr_full_s *entry, void *ctx), void *ctx)
 {
-	if (pool->fillsize == 0) return 0;
+	if (pool->fillsize == 0) return -1;
 	
 	int i;
 	for (i = 0; i < pool->size; i++) {
