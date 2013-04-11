@@ -3,6 +3,7 @@
 #include "connection.h"
 #include "program.h"
 #include "util.h"
+#include "log.h"
 
 int bp_program_init(bp_program_s *program)
 {
@@ -65,7 +66,7 @@ int bp_program_check_connections(bp_program_s *program)
 				bp_connection_free(newconn);
 			}
 			
-			printf("Connected to new client %u.%u.%u.%u:%u to get minimum connection #\n", (unsigned char)ip->address[12], (unsigned char)ip->address[13], (unsigned char)ip->address[14], (unsigned char)ip->address[15], ntohs(ip->port));
+			write_log(1, "Connected to new client %u.%u.%u.%u:%u to get minimum connection count\n", (unsigned char)ip->address[12], (unsigned char)ip->address[13], (unsigned char)ip->address[14], (unsigned char)ip->address[15], ntohs(ip->port));
 		}
 	}
 	

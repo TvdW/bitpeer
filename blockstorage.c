@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "blockstorage.h"
 #include "program.h"
+#include "log.h"
 
 const unsigned char genesis[] = {
 	0x6f, 0xe2, 0x8c, 0x0a, 0xb6, 0xf1, 0xb3, 0x72,
@@ -36,7 +37,7 @@ int bp_blockstorage_init(bp_blockstorage_s *storage, void *_program)
 			storage->mainchain_fd = fopen("mainchain.dat", "ab");
 			
 			if (r != 1 || !storage->mainchain_fd) {
-				printf("Failed to load cached chain\n");
+				write_log(4, "Failed to load cached blockchain from mainchain.dat");
 				do_reindex = 1;
 				free(storage->mainchain);
 				storage->mainchain = NULL;
@@ -61,7 +62,7 @@ int bp_blockstorage_init(bp_blockstorage_s *storage, void *_program)
 			storage->orphans_fd = fopen("orphans.dat", "ab");
 			
 			if ((r != 1 && storage->orphans_writepos != 0) || !storage->orphans_fd) {
-				printf("Failed to load cached orphan chain\n");
+				write_log(4, "Failed to load cached orphan chain from orphans.dat");
 				do_reindex = 1;
 				free(storage->orphans);
 				storage->orphans = NULL;
@@ -83,7 +84,7 @@ int bp_blockstorage_init(bp_blockstorage_s *storage, void *_program)
 		bp_blockstorage_reindex(storage);
 	}
 	
-	printf("Main chain: %d blocks\n", bp_blockstorage_getheight(storage));
+	write_log(2, "Main chain contains %d blocks", bp_blockstorage_getheight(storage));
 	
 	// Open the last block file we can find, so we can append
 	
@@ -130,14 +131,12 @@ int bp_blockstorage_index(bp_blockstorage_s *storage, char *blockhash, char *pre
 	else {
 		// Looking for the genesis block
 		if (memcmp(blockhash, genesis, 32) == 0) {
-			printf("Genesis\n");
 			goto store_top;
 		}
 	}
 	
 	// Maybe it's just a duplicate?
 	if (bp_blockstorage_hasblock(storage, blockhash) > 0) {
-		printf("Duplicate\n");
 		return 0;
 	}
 	
@@ -149,7 +148,6 @@ int bp_blockstorage_index(bp_blockstorage_s *storage, char *blockhash, char *pre
 	// See if we can trace it back to some place on our main chain
 	// if we can: add that whole branch to the main chain, when it beats the height
 	// if we can't: add it to the orphans
-	printf("Sidechain\n");
 	
 	do_recheck = 1;
 	goto store_orphan;
@@ -275,7 +273,7 @@ int bp_blockstorage_reindex(bp_blockstorage_s *storage)
 			break;
 		}
 		
-		printf("Indexing %s\n", filename);
+		write_log(1, "Indexing %s", filename);
 		
 		// Index one block
 		// TODO: check magic

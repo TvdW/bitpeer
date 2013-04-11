@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include "connection.h"
 #include "commands.h"
+#include "log.h"
 
 int bp_connection_init(bp_connection_s *connection, bp_server_s *server);
 int bp_connection_init_finish(bp_connection_s *connection, struct sockaddr *address, int addrlen);
@@ -21,7 +22,7 @@ int bp_connection_init(bp_connection_s *connection, bp_server_s *server)
 	
 	if (server->program->cur_connections == server->program->max_connections) {
 		// TODO: This will cause connection_id to be <random> which will cause issues when free() gets called
-		printf("Too many connections\n");
+		write_log(3, "Rejecting incoming connection because we are at our limit");
 		return -1;
 	}
 	
@@ -127,7 +128,7 @@ void bp_connection_readcb(struct bufferevent *bev, void *ctx)
 	assert(connection->sockbuf == bev);
 	struct evbuffer *input = bufferevent_get_input(bev);
 	size_t len = evbuffer_get_length(input);
-	printf("Read callback (%li)\n", len);
+	write_log(0, "Received %u bytes", len);
 	
 begin:
 	if (connection->in_message == 0) {
@@ -168,7 +169,7 @@ void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx)
 	bp_program_s *program = connection->server->program;
 	
 	assert(connection->sockbuf == bev);
-	printf("Event %d callback\n", events);
+	write_log(0, "Received an event (%d)", events);
 	
 	if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) || events & BEV_EVENT_TIMEOUT) {
 		bp_connection_free(connection);

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "connection.h"
 #include "server.h"
+#include "log.h"
 
 static void accept_conn_cb(struct evconnlistener *listener, evutil_socket_t fd,
 						   struct sockaddr *address, int socklen, void* ctx);
@@ -38,7 +39,7 @@ int bp_server_listen(bp_server_s *server, unsigned short port)
 	listensin.sin_port = htons(port);
 	server->listener = evconnlistener_new_bind(server->program->eventbase, accept_conn_cb, server, LEV_OPT_REUSEABLE|LEV_OPT_CLOSE_ON_FREE, -1, (struct sockaddr*)&listensin, sizeof(listensin));
 	if (!server->listener) {
-		printf("Listen4 failed\n");
+		write_log(5, "Failed to listen on port %u", port);
 		return -1;
 	}
 	
@@ -48,7 +49,7 @@ int bp_server_listen(bp_server_s *server, unsigned short port)
 static void accept_conn_cb(struct evconnlistener *listener, evutil_socket_t fd,
 						   struct sockaddr *address, int socklen, void* ctx)
 {
-	printf("Incoming connection\n");
+	write_log(1, "Incoming connection");
 	bp_server_s *server = ctx;
 	bp_connection_s *conn = malloc(sizeof(bp_connection_s));
 	if (bp_connection_init_socket(conn, server, address, socklen, fd) < 0) {

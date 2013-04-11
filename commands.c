@@ -12,6 +12,7 @@
 #include "blockstorage.h"
 #include "txpool.h"
 #include "txverify.h"
+#include "log.h"
 
 // Constants for the network protocol. Ugly but efficient
 const ev_int32_t client_version =  70001;
@@ -66,7 +67,7 @@ int bp_connection_readmessage(bp_connection_s *connection)
 		return bp_connection_readgetdata(connection);
 	}
 	
-	printf("Unknown message type \"%s\"\n", connection->current_message.command);
+	write_log(3, "Unknown message type \"%s\"", connection->current_message.command);
 	bp_connection_skipmessage(connection);
 	
 	return -1;
@@ -116,7 +117,6 @@ int bp_connection_readversion(bp_connection_s *connection)
 		return -1;
 	}
 	
-	printf("Reading a version message of %d bytes\n", connection->current_message.length);
 	unsigned char *payload;
 	if (bp_connection_readpayload(connection, &payload) < 0) {
 		return -1;
@@ -124,7 +124,7 @@ int bp_connection_readversion(bp_connection_s *connection)
 	
 	// TODO: check allowable versions
 	bp_proto_version_s *peerversion = (bp_proto_version_s*)payload;
-	printf("Peer version %d\n", peerversion->version);
+	write_log(2, "Exchanging version messages (incoming), peer version protocol %d", peerversion->version);
 	
 	if (peerversion->version <= 0) {
 		// TODO: fatal error
@@ -160,7 +160,7 @@ int bp_connection_readverack(bp_connection_s *connection)
 		return -1;
 	}
 	
-	printf("Reading a verack message of %d bytes\n", connection->current_message.length);
+	write_log(2, "Peer acknowledged version info");
 	unsigned char *payload;
 	if (bp_connection_readpayload(connection, &payload) < 0) {
 		return -1;
@@ -209,7 +209,6 @@ int bp_connection_readaddr(bp_connection_s *connection)
 	ev_uint64_t addrcount = bp_readvarint(payload, &position, connection->current_message.length);
 	
 	if (addrcount * 30 != connection->current_message.length - position) {
-		printf("Length mismatch\n");
 		free(payload);
 		return -1;
 	}
@@ -225,7 +224,7 @@ int bp_connection_readaddr(bp_connection_s *connection)
 	}
 	
 	if (any_new) {
-		printf("Relaying addrs\n");
+		write_log(1, "Broadcasting address information");
 		bp_connection_broadcast(connection, addr_command, payload, connection->current_message.length);
 	}
 	
@@ -253,28 +252,27 @@ int bp_connection_readinv(bp_connection_s *connection)
 		return -1;
 	}
 	
-	printf("%lu invs (%lu)\n", invcnt, remaining_len);
 	ev_uint64_t i;
 	for (i = 0; i < invcnt; i++) {
 		bp_proto_inv_s inv_part;
 		bufferevent_read(connection->sockbuf, &inv_part, sizeof(inv_part));
-		printf("Inv type %d\n", inv_part.type);
 		
 		if (inv_part.type == 2) { // block
 			if (bp_blockstorage_hasblock(&connection->server->program->blockstorage, inv_part.hash) > 0) {
-				printf("We have it though\n");
+				//printf("We have it though\n");
 			}
 			else {
-				printf("We don't have it yet\n");
+				//printf("We don't have it yet\n");
 			}
 		}
 		else if (inv_part.type == 1) { // tx
 			if (bp_txpool_gettx(&connection->server->program->txpool, inv_part.hash) != NULL) {
-				printf("We have it though\n");
+				//printf("We have it though\n");
 			}
 			else {
-				printf("We don't have it yet\n");
+				//printf("We don't have it yet\n");
 				// TODO: group these
+				write_log(1, "Requesting tx info");
 				bp_connection_sendgetdata(connection, 1, inv_part.hash);
 			}
 		}
@@ -291,7 +289,7 @@ int bp_connection_readtx(bp_connection_s *connection)
 	}
 	
 	if (bp_tx_verify((char*)payload, connection->current_message.length) < 0) {
-		printf("Invalid tx received\n");
+		write_log(1, "Invalid tx received");
 		free(payload);
 		return -1;
 	}
@@ -305,7 +303,7 @@ int bp_connection_readtx(bp_connection_s *connection)
 	// We don't have to free the pointer, as the txpool takes it from us
 	bp_txpool_addtx(&connection->server->program->txpool, (char*)payload, connection->current_message.length);
 	
-	printf("Added a new tx to the pool\n");
+	write_log(1, "New tx stored in the pool");
 	
 	// Announce it
 	unsigned char announcement[37];
@@ -331,24 +329,22 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 		return -1;
 	}
 	
-	printf("%lu getdata's (%lu)\n", getdatacnt, remaining_len);
 	ev_uint64_t i;
 	for (i = 0; i < getdatacnt; i++) {
 		bp_proto_inv_s inv_part;
 		bufferevent_read(connection->sockbuf, &inv_part, sizeof(inv_part));
-		printf("Getdata type %d\n", inv_part.type);
 		
 		if (inv_part.type == 1) { // tx
 			bp_txpool_tx_s *tx = bp_txpool_gettx(&connection->server->program->txpool, inv_part.hash);
 			if (!tx) {
 				// Not found. // TODO: group these
 				// TODO: notfound
-				printf("Item not found\n");
+				write_log(1, "Peer requested unknown tx block");
 				continue;
 			}
 			
 			// TODO: we already have the checksum...
-			printf("Sending a tx\n");
+			write_log(1, "Sending a tx block to peer");
 			bp_connection_sendmessage(connection, tx_command, (unsigned char*)tx->data, tx->length);
 		}
 	}
