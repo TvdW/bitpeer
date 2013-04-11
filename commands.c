@@ -224,7 +224,7 @@ int bp_connection_readaddr(bp_connection_s *connection)
 	}
 	
 	if (any_new) {
-		write_log(1, "Broadcasting address information");
+		write_log(2, "Broadcasting address information");
 		bp_connection_broadcast(connection, addr_command, payload, connection->current_message.length);
 	}
 	
@@ -272,7 +272,7 @@ int bp_connection_readinv(bp_connection_s *connection)
 			else {
 				//printf("We don't have it yet\n");
 				// TODO: group these
-				write_log(1, "Requesting tx info");
+				write_log(2, "Requesting tx info");
 				bp_connection_sendgetdata(connection, 1, inv_part.hash);
 			}
 		}
@@ -289,7 +289,7 @@ int bp_connection_readtx(bp_connection_s *connection)
 	}
 	
 	if (bp_tx_verify((char*)payload, connection->current_message.length) < 0) {
-		write_log(1, "Invalid tx received");
+		write_log(2, "Invalid tx received");
 		free(payload);
 		return -1;
 	}
@@ -303,7 +303,7 @@ int bp_connection_readtx(bp_connection_s *connection)
 	// We don't have to free the pointer, as the txpool takes it from us
 	bp_txpool_addtx(&connection->server->program->txpool, (char*)payload, connection->current_message.length);
 	
-	write_log(1, "New tx stored in the pool");
+	write_log(2, "New tx stored in the pool");
 	
 	// Announce it
 	unsigned char announcement[37];
@@ -339,12 +339,12 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 			if (!tx) {
 				// Not found. // TODO: group these
 				// TODO: notfound
-				write_log(1, "Peer requested unknown tx block");
+				write_log(2, "Peer requested unknown tx block");
 				continue;
 			}
 			
 			// TODO: we already have the checksum...
-			write_log(1, "Sending a tx block to peer");
+			write_log(2, "Sending a tx block to peer");
 			bp_connection_sendmessage(connection, tx_command, (unsigned char*)tx->data, tx->length);
 		}
 	}
