@@ -7,10 +7,10 @@ AC_CONFIG_HEADERS([config.h])
 AC_PROG_CC_C99
 AM_PROG_CC_C_O
 
-AC_CHECK_LIB([ssl], [SHA256_Init])
+AC_CHECK_LIB([crypto], [SHA256_Init])
 AC_CHECK_HEADERS([openssl/sha.h])
 
-AC_CHECK_LIB([event], [bufferevent_write])
+AC_CHECK_LIB([event], [evbuffer_add_file])
 AC_CHECK_HEADERS([event2/event.h])
 
 AC_CONFIG_FILES([Makefile])
