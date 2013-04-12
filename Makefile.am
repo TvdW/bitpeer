@@ -7,7 +7,7 @@ bin_PROGRAMS = bitpeer
 bitpeer_SOURCES = \
 	src/bitpeer.c \
 	src/addrpool.h src/addrpool.c \
-	src/blockstorage.h src/blockstorage.c \
+	src/blockstorage.h src/blockstorage.c src/blockstorage_rechain.c \
 	src/blockverify.h src/blockverify.c \
 	src/btcblock.h \
 	src/client.h src/client.c \

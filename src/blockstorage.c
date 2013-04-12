@@ -24,6 +24,7 @@ int bp_blockstorage_init(bp_blockstorage_s *storage, void *_program)
 	
 	memset(storage, 0, sizeof(bp_blockstorage_s));
 	storage->program = _program;
+	storage->do_rechain = 1;
 	
 	int do_reindex = 0;
 	if (program->reindex_blocks) do_reindex = 1;
@@ -331,8 +332,8 @@ store_orphan:
 		memcpy(storage->orphans + storage->orphans_writepos, entry, 80);
 		storage->orphans_writepos += 80;
 		
-		if (do_recheck) {
-			// TODO
+		if (do_recheck && storage->do_rechain) {
+			bp_blockstorage_rechain(storage);
 		}
 		
 		return 0;
@@ -386,6 +387,8 @@ int bp_blockstorage_reindex(bp_blockstorage_s *storage)
 	storage->mainindex = bp_blockstorage_hashmap_new(65536);
 	storage->orphanindex = bp_blockstorage_hashmap_new(1024);
 	
+	storage->do_rechain = 0;
+	
 	// Iterate over the blocks we have
 	int blkid;
 	for (blkid = 0; blkid < 99999; blkid++) {
@@ -433,6 +436,9 @@ int bp_blockstorage_reindex(bp_blockstorage_s *storage)
 		
 		fclose(f);
 	}
+	
+	// Now that we loaded all blocks, see if we have to move them around
+	bp_blockstorage_rechain(storage);
 	
 	// While we now have the index, we still need to write it
 	storage->mainchain_fd = fopen("mainchain.dat", "wb");

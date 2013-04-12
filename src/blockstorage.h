@@ -49,6 +49,7 @@ struct bp_blockstorage_t {
 	FILE *currentblock_fd;
 	unsigned int currentblock_num;
 	unsigned int currentblock_offset;
+	unsigned do_rechain: 1;
 };
 typedef struct bp_blockstorage_t bp_blockstorage_s;
 
@@ -72,3 +73,7 @@ bp_blockstorage_hashmap_s *bp_blockstorage_hashmap_new(unsigned int size);
 int bp_blockstorage_hashmap_insert(bp_blockstorage_hashmap_s *map, char *blockhash, unsigned int num);
 bp_blockstorage_hashnode_s *bp_blockstorage_hashmap_getnode(bp_blockstorage_hashmap_s *map, char *blockhash);
 void bp_blockstorage_hashmap_free(bp_blockstorage_hashmap_s *map);
+
+// Rechaining
+int bp_blockstorage_rechain(bp_blockstorage_s *storage);
+int bp_blockstorage_deindex(bp_blockstorage_s *storage, int chain, int num);
