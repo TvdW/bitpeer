@@ -9,7 +9,12 @@ The target memory limit is 10MB for handling 1000 peers, plus 15 for the block i
 Features
 ========
 
-
+* Transaction relaying using a small in-memory pool
+* Block relaying using disk-based block storage
+* Handling several thousands of peers, if the network allows it
+* Extremely lightweight (below 25MB memory usage up to 1000 peers)
+* Extremely fast (using `sendfile` support and a lot of caching)
+* Address relaying (`getaddr` coming soon)
 
 
 Usage
