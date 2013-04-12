@@ -230,7 +230,7 @@ int bp_connection_readaddr(bp_connection_s *connection)
 	for (; position < connection->current_message.length; position += 30) {
 		bp_proto_net_addr_full_s *entry = (bp_proto_net_addr_full_s*) (payload + position);
 		if (!bp_addrpool_hasaddr(&connection->server->program->addrpool, entry)) {
-			bp_addrpool_add(&connection->server->program->addrpool, (bp_proto_net_addr_full_s*) (payload + position));
+			bp_addrpool_add(&connection->server->program->addrpool, entry);
 			any_new = 1;
 		}
 	}
