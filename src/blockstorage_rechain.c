@@ -69,6 +69,7 @@ int bp_blockstorage_deindex(bp_blockstorage_s *storage, int chain, int num)
 			assert(storage->orphans_fd);
 			int r = fwrite(storage->orphans, storage->orphans_writepos, 1, storage->orphans_fd);
 			assert(r == 1);
+			fflush(storage->orphans_fd);
 		}
 		
 		return 0;
