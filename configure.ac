@@ -7,11 +7,11 @@ AC_CONFIG_HEADERS([config.h])
 AC_PROG_CC_C99
 AM_PROG_CC_C_O
 
-AC_CHECK_LIB([crypto], [SHA256_Init])
-AC_CHECK_HEADERS([openssl/sha.h])
+AC_CHECK_LIB([crypto], [SHA256_Init], [], [AC_MSG_ERROR([libcrpyto not found])])
+AC_CHECK_HEADERS([openssl/sha.h], [], [AC_MSG_ERROR([openssl headers not found])])
 
-AC_CHECK_LIB([event], [evbuffer_add_file])
-AC_CHECK_HEADERS([event2/event.h])
+AC_CHECK_LIB([event], [evbuffer_add_file], [], [AC_MSG_ERROR([libevent2 not found])])
+AC_CHECK_HEADERS([event2/event.h], [], [AC_MSG_ERROR([libevent2 headers not found])])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
