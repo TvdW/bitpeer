@@ -8,7 +8,7 @@
 
 
 struct bp_blockstorage_hashnode_t {
-	unsigned int num;
+	int num;
 	unsigned int checksum;
 	struct bp_blockstorage_hashnode_t *next;
 };
@@ -65,6 +65,7 @@ int bp_blockstorage_rehash(bp_blockstorage_s *storage);
 char *bp_blockstorage_gettop(bp_blockstorage_s *storage);
 unsigned int bp_blockstorage_getheight(bp_blockstorage_s *storage);
 char *bp_blockstorage_getatindex(bp_blockstorage_s *storage, unsigned int num);
+int bp_blockstorage_getnum(bp_blockstorage_s *storage, char *blockhash);
 
 bp_blockstorage_hashmap_s *bp_blockstorage_hashmap_new(unsigned int size);
 int bp_blockstorage_hashmap_insert(bp_blockstorage_hashmap_s *map, char *blockhash, unsigned int num);

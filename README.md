@@ -6,6 +6,12 @@ Bitpeer is an experimental Bitcoin relay server. Its event-driven architecture m
 The target memory limit is 10MB for handling 1000 peers, plus 15 for the block indexes.
 
 
+Features
+========
+
+
+
+
 Usage
 =====
 
@@ -16,13 +22,22 @@ Usage
 Some settings are available in `bitpeer.c`.
 
 
+Installation
+============
+
+When building from git:
+
+	autoreconf -i
+	./configure
+	make
+
+When building from a tarball:
+
+	./configure
+	make
+
+
 Requirements
 ============
 
 The code currently only requires `libevent2` and `openssl`.
-
-
-Caution
-=======
-
-This is experimental software, and while it is currently very fast at relaying certain commands, other commands are not yet implemented. Until block relaying is implemented, the relay should not be used on a large scale, as that could be potentially very bad for the bitcoin network.

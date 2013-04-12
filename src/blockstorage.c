@@ -549,3 +549,10 @@ bp_blockstorage_hashnode_s *bp_blockstorage_hashmap_getnode(bp_blockstorage_hash
 	
 	return NULL;
 }
+
+int bp_blockstorage_getnum(bp_blockstorage_s *storage, char *blockhash)
+{
+	bp_blockstorage_hashnode_s *node = bp_blockstorage_hashmap_getnode(storage->mainindex, blockhash);
+	if (!node) return -1;
+	return node->num;
+}

@@ -76,6 +76,10 @@ int bp_connection_readmessage(bp_connection_s *connection)
 		return bp_connection_readblock(connection);
 	}
 	
+	if (memcmp(connection->current_message.command, getblocks_command, 12) == 0) {
+		return bp_connection_readgetblocks(connection);
+	}
+	
 	write_log(3, "Unknown message type \"%s\"", connection->current_message.command);
 	bp_connection_skipmessage(connection);
 	
@@ -432,4 +436,69 @@ int bp_connection_sendgetdata(bp_connection_s *connection, int type, char *hash)
 	sendblock[2] = sendblock[3] = sendblock[4] = 0;
 	
 	return bp_connection_sendmessage(connection, getdata_command, sendblock, 37);
+}
+
+int bp_connection_readgetblocks(bp_connection_s *connection)
+{
+	if (connection->current_message.length > 10000) {
+		write_log(2, "Skipping extremely large getblocks message");
+		bp_connection_skipmessage(connection);
+		return -1;
+	}
+	
+	unsigned char *payload;
+	if (bp_connection_readpayload(connection, &payload) < 0) {
+		return -1;
+	}
+	
+	size_t position = 0;
+	ev_uint64_t hashcount = bp_readvarint(payload, &position, connection->current_message.length);
+	
+	write_log(2, "Getblocks");
+	// Length check
+	if ((hashcount * 32) + 32 != connection->current_message.length - position) {
+		write_log(1, "getblocks size mismatch");
+		free(payload);
+		return -1;
+	}
+	
+	int best_known_hash = -1;
+	for (int i = 0; i < hashcount; i++) {
+		char *hash = (char*)payload + position;
+		position += 32;
+		
+		best_known_hash = bp_blockstorage_getnum(&connection->server->program->blockstorage, hash);
+		if (best_known_hash >= 0) {
+			break;
+		}
+	}
+	
+	if (best_known_hash < 0) best_known_hash = 0; // Genesis
+	
+	char *stophash = (char*)payload + connection->current_message.length - 32;
+	int final_hash = bp_blockstorage_getnum(&connection->server->program->blockstorage, stophash);
+	if (final_hash < 0) final_hash = bp_blockstorage_getheight(&connection->server->program->blockstorage);
+	free(payload);
+	
+	int send_hashcount = final_hash - best_known_hash;
+	if (send_hashcount <= 0) {
+		return 0;
+	}
+	
+	if (send_hashcount > 500) send_hashcount = 500;
+	
+	// TODO: group these :x
+	for (int i = 0; i < send_hashcount; i++) {
+		char *hashtosend = bp_blockstorage_getatindex(&connection->server->program->blockstorage, i + best_known_hash);
+		
+		unsigned char announcement[37];
+		announcement[0] = 1;
+		announcement[1] = 2;
+		announcement[2] = announcement[3] = announcement[4] = 0;
+		memcpy(announcement+5, hashtosend, 32);
+		bp_connection_sendmessage(connection, inv_command, announcement, 37);
+		write_log(2, "Sent inv in response to getblocks");
+	}
+	
+	return 0;
 }

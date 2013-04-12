@@ -17,3 +17,4 @@ bitpeer_SOURCES = \
 	src/txpool.h src/txpool.c \
 	src/txverify.h src/txverify.c \
 	src/util.h src/util.c
+bitpeer_CFLAGS = -Wall -Werror -pedantic -Wno-strict-aliasing

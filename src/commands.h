@@ -21,6 +21,7 @@ int bp_connection_readtx(bp_connection_s *connection);
 int bp_connection_readblock(bp_connection_s *connection);
 int bp_connection_sendgetdata(bp_connection_s *connection, int type, char *hash);
 int bp_connection_readgetdata(bp_connection_s *connection);
+int bp_connection_readgetblocks(bp_connection_s *connection);
 
 extern const char version_command[], verack_command[], addr_command[], inv_command[],
 	getdata_command[], notfound_command[], getblocks_command[], getheaders_command[],
