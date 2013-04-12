@@ -1,6 +1,7 @@
 # http://www.gnu.org/software/automake
 
 Makefile.in
+Makefile
 
 # http://www.gnu.org/software/autoconf
 
@@ -14,6 +15,12 @@ Makefile.in
 /config.h.in
 /config.h.in~
 /config.log
+/config.h
+/config.status
+/bitpeer
+.deps
+.dirstamp
+stamp-h?
 
 # Object files
 *.o
