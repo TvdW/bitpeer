@@ -1,3 +1,7 @@
+/*
+ Copyright (c) 2013, Tom van der Woerdt
+ */
+
 #pragma once
 #include <event2/listener.h>
 #include "program.h"

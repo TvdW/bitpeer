@@ -1,3 +1,7 @@
+/*
+ Copyright (c) 2013, Tom van der Woerdt
+ */
+
 #include <openssl/sha.h>
 #include <sys/stat.h>
 #include <assert.h>

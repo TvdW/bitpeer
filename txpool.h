@@ -1,3 +1,7 @@
+/*
+ Copyright (c) 2013, Tom van der Woerdt
+ */
+
 #pragma once
 
 struct bp_txpool_tx_t {

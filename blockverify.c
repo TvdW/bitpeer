@@ -1,3 +1,7 @@
+/*
+ Copyright (c) 2013, Tom van der Woerdt
+ */
+
 #include "blockverify.h"
 #include "util.h"
 #include "txverify.h"

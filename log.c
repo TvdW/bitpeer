@@ -1,3 +1,7 @@
+/*
+ Copyright (c) 2013, Tom van der Woerdt
+ */
+
 #include <stdio.h>
 #include "log.h"
 

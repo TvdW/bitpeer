@@ -1,3 +1,7 @@
+/*
+ Copyright (c) 2013, Tom van der Woerdt
+ */
+
 #include <event2/event.h>
 #include "txverify.h"
 #include "util.h"

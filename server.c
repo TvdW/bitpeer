@@ -1,3 +1,7 @@
+/*
+ Copyright (c) 2013, Tom van der Woerdt
+ */
+
 #include <string.h>
 #include <stdlib.h>
 #include "connection.h"

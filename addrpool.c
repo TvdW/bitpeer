@@ -1,3 +1,7 @@
+/*
+ Copyright (c) 2013, Tom van der Woerdt
+ */
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>

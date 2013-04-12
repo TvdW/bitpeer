@@ -1,3 +1,7 @@
+/*
+ Copyright (c) 2013, Tom van der Woerdt
+ */
+
 #pragma once
 #include <sys/socket.h>
 #include <event2/event.h>
