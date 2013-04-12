@@ -151,6 +151,10 @@ void bp_blockstorage_deinit(bp_blockstorage_s *storage)
 
 int bp_blockstorage_store(bp_blockstorage_s *storage, char *blockhash, bp_btcblock_header_s *header, char *txs, size_t txs_len)
 {
+	if (storage->currentblock_offset > 500000000) { // 500MB
+		bp_blockstorage_nextblock(storage);
+	}
+	
 	// Basically just store it in a btcblk, then index it
 	assert(storage->currentblock_fd);
 	
@@ -484,6 +488,22 @@ int bp_blockstorage_rehash(bp_blockstorage_s *storage)
 	for (i = 0; i < storage->orphans_writepos; i += 80) {
 		bp_blockstorage_hashmap_insert(storage->orphanindex, storage->orphans + i, i / 80);
 	}
+	
+	return 0;
+}
+
+int bp_blockstorage_nextblock(bp_blockstorage_s *storage)
+{
+	assert(storage->currentblock_fd);
+	fclose(storage->currentblock_fd);
+	storage->currentblock_num += 1;
+	char filename[13];
+	sprintf(filename, "blk%.5d.dat", storage->currentblock_num);
+	
+	write_log(2, "Creating a new block file %s", filename);
+	storage->currentblock_fd = fopen(filename, "wb");
+	storage->currentblock_offset = 0;
+	assert(storage->currentblock_fd);
 	
 	return 0;
 }
