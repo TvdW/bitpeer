@@ -22,6 +22,12 @@ int bp_program_init(bp_program_s *program)
 
 void bp_program_deinit(bp_program_s *program)
 {
+	for (int i = 0; i < program->max_connections; i++) {
+		if (program->connections[i] != NULL)
+			bp_connection_free(program->connections[i]);
+	}
+	
+	free(program->connections);
 	bp_addrpool_deinit(&program->addrpool);
 	bp_blockstorage_deinit(&program->blockstorage);
 	bp_txpool_deinit(&program->txpool);

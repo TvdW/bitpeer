@@ -20,4 +20,4 @@ bitpeer_SOURCES = \
 	src/txverify.h src/txverify.c \
 	src/util.h src/util.c \
 	src/invvector.h src/invvector.c
-bitpeer_CFLAGS = -Wall -Werror -pedantic -Wno-strict-aliasing
+bitpeer_CFLAGS = -Wall -Werror -pedantic -Wno-strict-aliasing -Wmissing-prototypes

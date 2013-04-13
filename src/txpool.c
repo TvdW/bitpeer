@@ -25,6 +25,7 @@ void bp_txpool_deinit(bp_txpool_s *pool)
 			free(pool->transactions[i].data);
 		}
 	}
+	free(pool->transactions);
 }
 
 int bp_txpool_addtx(bp_txpool_s *pool, char *tx, size_t tx_len)

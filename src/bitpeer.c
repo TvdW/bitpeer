@@ -10,11 +10,21 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <signal.h>
 
 #include "connection.h"
 #include "program.h"
 #include "server.h"
 #include "btcblock.h"
+
+static void signal_cb(int fd, short event, void *arg)
+{
+	printf("Caught SIGINT. Will stop in 2 seconds\n");
+	bp_program_s *program = arg;
+	struct timeval timeout;
+	timeout.tv_sec = 2; timeout.tv_usec = 0;
+	event_base_loopexit(program->eventbase, &timeout);
+}
 
 int main(int argc, char** argv)
 {
@@ -107,6 +117,10 @@ int main(int argc, char** argv)
 	
 	program.eventbase = event_base_new();
 	
+	/* Set up the signal handler */
+	struct event *signal_event = evsignal_new(program.eventbase, SIGINT, signal_cb, &program);
+	evsignal_add(signal_event, NULL);
+	
 	/* Create a server */
 	bp_server_s server;
 	program.server_v4 = &server;
@@ -125,8 +139,11 @@ int main(int argc, char** argv)
 	event_base_loop(program.eventbase, 0);
 	
 	/* It would appear that our loop ended, so clean up */
-	event_base_free(program.eventbase);
+	event_free(signal_event);
+	bp_server_deinit(&server);
+	
 	bp_program_deinit(&program);
+	event_base_free(program.eventbase);
 	
 	return EXIT_SUCCESS;
 }

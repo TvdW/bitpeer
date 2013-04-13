@@ -438,17 +438,6 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 	return 0;
 }
 
-int bp_connection_sendgetdata(bp_connection_s *connection, int type, char *hash)
-{
-	unsigned char sendblock[37];
-	memcpy(sendblock+5, hash, 32);
-	sendblock[0] = 1;
-	sendblock[1] = type;
-	sendblock[2] = sendblock[3] = sendblock[4] = 0;
-	
-	return bp_connection_sendmessage(connection, getdata_command, sendblock, 37);
-}
-
 int bp_connection_readgetblocks(bp_connection_s *connection)
 {
 	if (connection->current_message.length > 10000) {
@@ -465,7 +454,7 @@ int bp_connection_readgetblocks(bp_connection_s *connection)
 	size_t position = 4;
 	ev_uint64_t hashcount = bp_readvarint(payload, &position, connection->current_message.length);
 	
-	write_log(2, "Getblocks %d %d %u", *(ev_uint32_t*)(payload), hashcount, connection->current_message.length);
+	write_log(2, "Getblocks %d %d %d", *(ev_uint32_t*)(payload), hashcount, connection->current_message.length);
 	// Length check
 	if ((hashcount * 32) + 32 != connection->current_message.length - position) {
 		write_log(2, "getblocks size mismatch");

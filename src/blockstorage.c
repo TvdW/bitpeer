@@ -169,6 +169,7 @@ void bp_blockstorage_deinit(bp_blockstorage_s *storage)
 	free(storage->orphans);
 	if (storage->mainchain_fd) fclose(storage->mainchain_fd);
 	if (storage->orphans_fd) fclose(storage->orphans_fd);
+	if (storage->currentblock_fd) fclose(storage->currentblock_fd);
 	if (storage->mainindex) bp_blockstorage_hashmap_free(storage->mainindex);
 	if (storage->orphanindex) bp_blockstorage_hashmap_free(storage->orphanindex);
 }
@@ -593,6 +594,7 @@ void bp_blockstorage_hashmap_free(bp_blockstorage_hashmap_s *map)
 			node = next;
 		}
 	}
+	free(map->nodes);
 	free(map);
 }
 

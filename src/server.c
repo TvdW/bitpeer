@@ -13,6 +13,7 @@ static void accept_conn_cb(struct evconnlistener *listener, evutil_socket_t fd,
 
 int bp_server_init(bp_server_s *server, bp_program_s *program, int family, char *address, unsigned short port)
 {
+	server->listener = NULL;
 	server->program = program;
 	
 	server->local_port = port;
@@ -31,6 +32,9 @@ int bp_server_init(bp_server_s *server, bp_program_s *program, int family, char 
 
 int bp_server_deinit(bp_server_s *server)
 {
+	if (server->listener) {
+		evconnlistener_free(server->listener);
+	}
 	return 0;
 }
 
