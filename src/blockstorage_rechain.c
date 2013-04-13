@@ -25,11 +25,14 @@ int bp_blockstorage_rechain_main(bp_blockstorage_s *storage)
 				memcpy(block, orphan, 80);
 				
 				// Delete it from the index, then add it again
+				int do_rechain = storage->do_rechain;
+				storage->do_rechain = 0;
 				bp_blockstorage_deindex(storage, 1, i/80);
 				bp_blockstorage_index(storage, block, block+32, *(unsigned int*)(block+64), *(unsigned int*)(block+68), *(unsigned int*)(block+72), *(unsigned int*)(block+76));
 				
 				write_log(2, "Moved a block from orphan to main");
 				found_anything = 1;
+				storage->do_rechain = do_rechain;
 				break;
 			}
 		}
@@ -71,12 +74,15 @@ int bp_blockstorage_deindex(bp_blockstorage_s *storage, int chain, int num)
 		
 		// Write the new orphans file
 		if (storage->orphans_fd) {
+			// TODO: there has to be a cleaner way to do this...
 			fclose(storage->orphans_fd);
 			storage->orphans_fd = fopen("orphans.dat", "wb");
 			assert(storage->orphans_fd);
-			int r = fwrite(storage->orphans, storage->orphans_writepos, 1, storage->orphans_fd);
-			assert(r == 1);
-			fflush(storage->orphans_fd);
+			if (storage->orphans_writepos > 0) {
+				int r = fwrite(storage->orphans, storage->orphans_writepos, 1, storage->orphans_fd);
+				assert(r == 1);
+				fflush(storage->orphans_fd);
+			}
 		}
 		
 		return 0;

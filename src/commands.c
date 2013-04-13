@@ -18,6 +18,7 @@
 #include "txverify.h"
 #include "blockverify.h"
 #include "log.h"
+#include "invvector.h"
 
 // Constants for the network protocol. Ugly but efficient
 const ev_int32_t client_version =  70001;
@@ -265,6 +266,9 @@ int bp_connection_readinv(bp_connection_s *connection)
 		return -1;
 	}
 	
+	bp_invvector_s *invreq = bp_invvector_new(invcnt);
+	assert(invreq);
+	
 	ev_uint64_t i;
 	for (i = 0; i < invcnt; i++) {
 		bp_proto_inv_s inv_part;
@@ -276,8 +280,7 @@ int bp_connection_readinv(bp_connection_s *connection)
 			}
 			else {
 				//printf("We don't have it yet\n");
-				write_log(2, "Requesting block info");
-				bp_connection_sendgetdata(connection, 2, inv_part.hash);
+				bp_invvector_add(invreq, 2, inv_part.hash);
 			}
 		}
 		else if (inv_part.type == 1) { // tx
@@ -286,12 +289,19 @@ int bp_connection_readinv(bp_connection_s *connection)
 			}
 			else {
 				//printf("We don't have it yet\n");
-				// TODO: group these
-				write_log(2, "Requesting tx info");
-				bp_connection_sendgetdata(connection, 1, inv_part.hash);
+				bp_invvector_add(invreq, 1, inv_part.hash);
 			}
 		}
 	}
+	
+	if (invreq->currentindex) {
+		write_log(2, "Sending getdata");
+		char *buf;
+		size_t len = bp_invvector_getbuffer(invreq, &buf);
+		bp_connection_sendmessage(connection, getdata_command, (unsigned char*)buf, len);
+	}
+	
+	bp_invvector_free(invreq);
 	
 	return 0;
 }
@@ -488,18 +498,19 @@ int bp_connection_readgetblocks(bp_connection_s *connection)
 	
 	if (send_hashcount > 500) send_hashcount = 500;
 	
-	// TODO: group these :x
+	// Sends a grouped reply of all hashes
+	bp_invvector_s *inv_vec = bp_invvector_new(send_hashcount);
+	if (!inv_vec) return -1;
+	
 	for (int i = 0; i < send_hashcount; i++) {
 		char *hashtosend = bp_blockstorage_getatindex(&connection->server->program->blockstorage, i + best_known_hash);
-		
-		unsigned char announcement[37];
-		announcement[0] = 1;
-		announcement[1] = 2;
-		announcement[2] = announcement[3] = announcement[4] = 0;
-		memcpy(announcement+5, hashtosend, 32);
-		bp_connection_sendmessage(connection, inv_command, announcement, 37);
-		write_log(2, "Sent inv in response to getblocks");
+		bp_invvector_add(inv_vec, 2, hashtosend);
 	}
+	
+	char *buffer;
+	size_t len = bp_invvector_getbuffer(inv_vec, &buffer);
+	bp_connection_sendmessage(connection, inv_command, (unsigned char*)buffer, len);
+	bp_invvector_free(inv_vec);
 	
 	return 0;
 }
