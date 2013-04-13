@@ -452,13 +452,13 @@ int bp_connection_readgetblocks(bp_connection_s *connection)
 		return -1;
 	}
 	
-	size_t position = 0;
+	size_t position = 4;
 	ev_uint64_t hashcount = bp_readvarint(payload, &position, connection->current_message.length);
 	
-	write_log(2, "Getblocks %d", *(ev_uint32_t*)(payload));
+	write_log(2, "Getblocks %d %d %u", *(ev_uint32_t*)(payload), hashcount, connection->current_message.length);
 	// Length check
 	if ((hashcount * 32) + 32 != connection->current_message.length - position) {
-		write_log(1, "getblocks size mismatch");
+		write_log(2, "getblocks size mismatch");
 		free(payload);
 		return -1;
 	}
