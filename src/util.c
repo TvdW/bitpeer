@@ -4,6 +4,7 @@
 
 #include <string.h>
 #include "util.h"
+#include "log.h"
 
 ev_uint64_t bp_readvarint(const unsigned char *buffer, size_t *position, size_t length)
 {
@@ -31,6 +32,8 @@ ev_uint64_t bp_readvarint(const unsigned char *buffer, size_t *position, size_t 
 		(*position) += 9;
 		return num;
 	}
+	
+	write_log(3, "Failed to parse varint");
 	
 	(*position) += 1;
 	return 0;

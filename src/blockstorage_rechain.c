@@ -3,9 +3,10 @@
 #include "blockstorage.h"
 #include "log.h"
 
-int bp_blockstorage_rechain(bp_blockstorage_s *storage)
+int bp_blockstorage_rechain_main(bp_blockstorage_s *storage)
 {
-	// Step 1: check whether we have any orphans that should actually be in the main chain
+	// This gets called when we just had a new block stored on top.
+	// Check whether we have any orphans that should actually be in the main chain
 	// This can happen when we simply receive blocks in the wrong order
 	while (1) {
 		char *top_of_chain = bp_blockstorage_gettop(storage);
@@ -40,6 +41,12 @@ int bp_blockstorage_rechain(bp_blockstorage_s *storage)
 	// Since we may have destoyed our cache, we better build it again
 	// TODO: only rehahs the orphan cache
 	if (storage->orphanindex == NULL) bp_blockstorage_rehash(storage);
+	return 0;
+}
+
+int bp_blockstorage_rechain_orphan(bp_blockstorage_s *storage)
+{
+	// TODO
 	return 0;
 }
 

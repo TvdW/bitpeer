@@ -260,6 +260,7 @@ int bp_connection_readinv(bp_connection_s *connection)
 	ev_uint64_t invcnt = bp_connection_readvarint(connection, &remaining_len);
 	
 	if (remaining_len != invcnt * 36) {
+		write_log(3, "Malformed 'inv' frame %u %llu", remaining_len, invcnt);
 		evbuffer_drain(bufferevent_get_input(connection->sockbuf), remaining_len);
 		return -1;
 	}
@@ -454,7 +455,7 @@ int bp_connection_readgetblocks(bp_connection_s *connection)
 	size_t position = 0;
 	ev_uint64_t hashcount = bp_readvarint(payload, &position, connection->current_message.length);
 	
-	write_log(2, "Getblocks");
+	write_log(2, "Getblocks %d", *(ev_uint32_t*)(payload));
 	// Length check
 	if ((hashcount * 32) + 32 != connection->current_message.length - position) {
 		write_log(1, "getblocks size mismatch");
@@ -501,4 +502,44 @@ int bp_connection_readgetblocks(bp_connection_s *connection)
 	}
 	
 	return 0;
+}
+
+int bp_connection_sendgetblocks(bp_connection_s *connection, char *for_hash)
+{
+	bp_blockstorage_s *storage = &connection->server->program->blockstorage;
+	unsigned int height = bp_blockstorage_getheight(storage);
+	
+	if (for_hash != NULL) {
+		unsigned char request[69];
+		memset(request, 0, 69);
+		memcpy(request, &client_version, 4);
+		request[4] = 1;
+		memcpy(request+5, for_hash, 32);
+		return bp_connection_sendmessage(connection, getblocks_command, request, 69);
+	}
+	
+	if (height == 0) {
+		unsigned char request[69];
+		memset(request, 0, 69);
+		memcpy(request, &client_version, 4);
+		request[4] = 1;
+		return bp_connection_sendmessage(connection, getblocks_command, request, 69);
+	}
+	else {
+		// We really never want to send more than 20 hashes.
+		unsigned char request[37 + (20 * 32)];
+		memset(request, 0, 37 + (20 * 32));
+		memcpy(request, &client_version, 4);
+		unsigned int step = 1, pos = 0;
+		for (int i = 0; i < 20; i++, pos += step) {
+			if (pos >= height) break;
+			if (i >= 10) step *= 2;
+			
+			memcpy(request + 5 + (32 * i), bp_blockstorage_getatindex(storage, height-pos-1), 32);
+			request[4] += 1;
+		}
+		
+		write_log(2, "Requesting new blocks using %u hashes", request[4]);
+		return bp_connection_sendmessage(connection, getblocks_command, request, 37 + (request[4] * 32));
+	}
 }

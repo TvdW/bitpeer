@@ -245,7 +245,9 @@ int bp_connection_sendfile(bp_connection_s *connection, const char *command, int
 	header.checksum = checksum;
 	
 	bufferevent_write(connection->sockbuf, &header, sizeof(header));
-	evbuffer_add_file(bufferevent_get_output(connection->sockbuf), fd, offset, size);
+	if (evbuffer_add_file(bufferevent_get_output(connection->sockbuf), fd, offset, size) < 0) {
+		write_log(4, "Failed to sendfile()");
+	}
 	
 	return 0;
 }
@@ -254,30 +256,28 @@ int bp_connection_sendfile(bp_connection_s *connection, const char *command, int
 /* Protocol recv functions */
 ev_uint64_t bp_connection_readvarint(bp_connection_s *connection, size_t *len)
 {
-	size_t length = evbuffer_get_length(bufferevent_get_input(connection->sockbuf));
-	assert(length > 0);
-	
-	char buf[8];
+	unsigned char buf[8];
 	bufferevent_read(connection->sockbuf, buf, 1);
 	if (buf[0] < 0xfd) {
 		(*len) -= 1;
 		return buf[0];
 	}
-	if (buf[1] == 0xfd && length >= 3) {
+	if (buf[0] == 0xfd && *len >= 3) {
 		bufferevent_read(connection->sockbuf, buf, 2);
 		(*len) -= 3;
 		return *(ev_uint16_t*)(buf);
 	}
-	if (buf[1] == 0xfe && length >= 5) {
+	if (buf[0] == 0xfe && *len >= 5) {
 		bufferevent_read(connection->sockbuf, buf, 4);
 		(*len) -= 5;
 		return *(ev_uint32_t*)(buf);
 	}
-	if (buf[1] == 0xff && length >= 9) {
+	if (buf[0] == 0xff && *len >= 9) {
 		bufferevent_read(connection->sockbuf, buf, 8);
 		(*len) -= 9;
 		return *(ev_uint64_t*)(buf);
 	}
+	(*len) -= 1;
 	return 0;
 }
 

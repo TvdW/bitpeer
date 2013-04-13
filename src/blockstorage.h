@@ -68,6 +68,7 @@ unsigned int bp_blockstorage_getheight(bp_blockstorage_s *storage);
 char *bp_blockstorage_getatindex(bp_blockstorage_s *storage, unsigned int num);
 int bp_blockstorage_getnum(bp_blockstorage_s *storage, char *blockhash);
 int bp_blockstorage_nextblock(bp_blockstorage_s *storage);
+int bp_blockstorage_store_genesis(bp_blockstorage_s *storage);
 
 bp_blockstorage_hashmap_s *bp_blockstorage_hashmap_new(unsigned int size);
 int bp_blockstorage_hashmap_insert(bp_blockstorage_hashmap_s *map, char *blockhash, unsigned int num);
@@ -75,5 +76,6 @@ bp_blockstorage_hashnode_s *bp_blockstorage_hashmap_getnode(bp_blockstorage_hash
 void bp_blockstorage_hashmap_free(bp_blockstorage_hashmap_s *map);
 
 // Rechaining
-int bp_blockstorage_rechain(bp_blockstorage_s *storage);
+int bp_blockstorage_rechain_main(bp_blockstorage_s *storage);
+int bp_blockstorage_rechain_orphan(bp_blockstorage_s *storage);
 int bp_blockstorage_deindex(bp_blockstorage_s *storage, int chain, int num);

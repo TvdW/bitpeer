@@ -27,5 +27,8 @@ int bp_connection_post_handshake(bp_connection_s *connection)
 	memcpy(addr_msg+29, &connection->server->local_port, 2);
 	bp_connection_sendmessage(connection, addr_command, addr_msg, 31);
 	
+	// TODO: this MUST be moved.
+	bp_connection_sendgetblocks(connection, NULL);
+	
 	return 0;
 }
