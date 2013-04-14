@@ -26,6 +26,11 @@ static void signal_cb(int fd, short event, void *arg)
 	event_base_loopexit(program->eventbase, &timeout);
 }
 
+static void log_cb(int severity, const char *msg)
+{
+	printf("%s\n", msg);
+}
+
 int main(int argc, char** argv)
 {
 	/* Set the CWD */
@@ -115,8 +120,10 @@ int main(int argc, char** argv)
 	/* Create the main loop */
 	bp_program_init(&program);
 	
+	event_set_log_callback(log_cb);
+	event_enable_debug_mode();
 	program.eventbase = event_base_new();
-	
+
 	/* Set up the signal handler */
 	struct event *signal_event = evsignal_new(program.eventbase, SIGINT, signal_cb, &program);
 	evsignal_add(signal_event, NULL);
@@ -137,7 +144,8 @@ int main(int argc, char** argv)
 	
 	/* Run the loop */
 	event_base_loop(program.eventbase, 0);
-	
+	printf("Entering clean shutdown state\n");
+
 	/* It would appear that our loop ended, so clean up */
 	event_free(signal_event);
 	bp_server_deinit(&server);

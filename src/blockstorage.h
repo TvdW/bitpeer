@@ -4,6 +4,7 @@
 
 #pragma once
 #include <stdio.h>
+#include <event2/event.h>
 #include "btcblock.h"
 
 
@@ -23,7 +24,7 @@ typedef struct bp_blockstorage_hashmap_t bp_blockstorage_hashmap_s;
 
 
 struct bp_blockstorage_fd_t {
-	int fd;
+	struct evbuffer_file_segment *seg;
 	unsigned int offset;
 	unsigned int size;
 	unsigned int checksum;
@@ -50,6 +51,8 @@ struct bp_blockstorage_t {
 	unsigned int currentblock_num;
 	unsigned int currentblock_offset;
 	unsigned do_rechain: 1;
+	
+	struct evbuffer_file_segment **block_fds;
 };
 typedef struct bp_blockstorage_t bp_blockstorage_s;
 

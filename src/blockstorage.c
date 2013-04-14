@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <event2/buffer.h>
 #include "blockstorage.h"
 #include "program.h"
 #include "log.h"
@@ -44,6 +45,7 @@ int bp_blockstorage_init(bp_blockstorage_s *storage, void *_program)
 	memset(storage, 0, sizeof(bp_blockstorage_s));
 	storage->program = _program;
 	storage->do_rechain = 1;
+	storage->block_fds = NULL;
 	
 	int do_reindex = 0;
 	if (program->reindex_blocks) do_reindex = 1;
@@ -155,6 +157,16 @@ int bp_blockstorage_init(bp_blockstorage_s *storage, void *_program)
 		storage->currentblock_offset = 0;
 	}
 	
+	// Create our block_fds list
+	storage->block_fds = malloc(sizeof(void*) * (storage->currentblock_num + 1));
+	for (unsigned int i = 0; i <= storage->currentblock_num; i++) {
+		char filename[13];
+		sprintf(filename, "blk%.5d.dat", i);
+		int fd = open(filename, O_RDONLY);
+		storage->block_fds[i] = evbuffer_file_segment_new(fd, 0, -1, EVBUF_FS_CLOSE_ON_FREE);
+		assert(storage->block_fds[i]);
+	}
+	
 	// Do we need to add the genesis block?
 	if (bp_blockstorage_getheight(storage) == 0) {
 		bp_blockstorage_store_genesis(storage);
@@ -172,6 +184,12 @@ void bp_blockstorage_deinit(bp_blockstorage_s *storage)
 	if (storage->currentblock_fd) fclose(storage->currentblock_fd);
 	if (storage->mainindex) bp_blockstorage_hashmap_free(storage->mainindex);
 	if (storage->orphanindex) bp_blockstorage_hashmap_free(storage->orphanindex);
+	
+	for (int i = 0; i <= storage->currentblock_num; i++) {
+		assert(storage->block_fds[i] != NULL); // it couldn't be...
+		evbuffer_file_segment_free(storage->block_fds[i]);
+	}
+	free(storage->block_fds);
 }
 
 
@@ -181,6 +199,9 @@ int bp_blockstorage_store(bp_blockstorage_s *storage, char *blockhash, bp_btcblo
 		bp_blockstorage_nextblock(storage);
 	}
 	
+	// Thanks to a bug in libevent we need to reinit our block_fd for this block
+	evbuffer_file_segment_free(storage->block_fds[storage->currentblock_num]);
+
 	// Basically just store it in a btcblk, then index it
 	assert(storage->currentblock_fd);
 	
@@ -210,6 +231,13 @@ int bp_blockstorage_store(bp_blockstorage_s *storage, char *blockhash, bp_btcblo
 	bp_blockstorage_index(storage, blockhash, header->prevhash, storage->currentblock_num, storage->currentblock_offset + 8, total_size, checksum);
 	
 	storage->currentblock_offset += total_size + 8;
+
+	// Reopen the block_fd
+	char filename[13];
+	sprintf(filename, "blk%.5d.dat", storage->currentblock_num);
+	int fd = open(filename, O_RDONLY);
+	storage->block_fds[storage->currentblock_num] = evbuffer_file_segment_new(fd, 0, -1, EVBUF_FS_CLOSE_ON_FREE);
+	assert(storage->block_fds[storage->currentblock_num]);
 	
 	return 0;
 }
@@ -229,10 +257,8 @@ int bp_blockstorage_getfd(bp_blockstorage_s *storage, char *blockhash, bp_blocks
 		unsigned int size = *(unsigned int*)(entry+40);
 		unsigned int checksum = *(unsigned int*)(entry+44);
 		
-		char filename[13];
-		sprintf(filename, "blk%.5d.dat", blockfile);
-		fd->fd = open(filename, O_RDONLY);
-		assert(fd->fd >= 0);
+		fd->seg = storage->block_fds[blockfile];
+		assert(fd->seg);
 		fd->offset = offset;
 		fd->size = size;
 		fd->checksum = checksum;
@@ -252,10 +278,8 @@ int bp_blockstorage_getfd(bp_blockstorage_s *storage, char *blockhash, bp_blocks
 		unsigned int size = *(unsigned int*)(entry+72);
 		unsigned int checksum = *(unsigned int*)(entry+76);
 		
-		char filename[13];
-		sprintf(filename, "blk%.5d.dat", blockfile);
-		fd->fd = open(filename, O_RDONLY);
-		assert(fd->fd >= 0);
+		fd->seg = storage->block_fds[blockfile];
+		assert(fd->seg);
 		fd->offset = offset;
 		fd->size = size;
 		fd->checksum = checksum;
@@ -540,6 +564,11 @@ int bp_blockstorage_nextblock(bp_blockstorage_s *storage)
 	storage->currentblock_fd = fopen(filename, "wb");
 	storage->currentblock_offset = 0;
 	assert(storage->currentblock_fd);
+	
+	storage->block_fds = realloc(storage->block_fds, sizeof(struct evbuffer_file_segment*) * (storage->currentblock_num + 1));
+	int fd = open(filename, O_RDONLY);
+	storage->block_fds[storage->currentblock_num] = evbuffer_file_segment_new(fd, 0, -1, EVBUF_FS_CLOSE_ON_FREE);
+	assert(storage->block_fds[storage->currentblock_num]);
 	
 	return 0;
 }

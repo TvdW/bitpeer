@@ -3,6 +3,8 @@ EXTRA_DIST = README.md LICENSE.txt
 AUTOMAKE_OPTIONS = subdir-objects
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS}
 
+libevent_LIBS += -lrt
+
 bin_PROGRAMS = bitpeer
 bitpeer_SOURCES = \
 	src/bitpeer.c \
@@ -21,3 +23,5 @@ bitpeer_SOURCES = \
 	src/util.h src/util.c \
 	src/invvector.h src/invvector.c
 bitpeer_CFLAGS = -Wall -Werror -pedantic -Wno-strict-aliasing -Wmissing-prototypes
+bitpeer_CFLAGS += $(libevent_CFLAGS) $(libcrypto_CFLAGS)
+bitpeer_LDADD = $(libevent_LIBS) $(libcrypto_LIBS)

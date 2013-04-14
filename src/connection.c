@@ -236,7 +236,7 @@ int bp_connection_broadcast(bp_connection_s *origin, const char *command, unsign
 	return 0;
 }
 
-int bp_connection_sendfile(bp_connection_s *connection, const char *command, int fd, unsigned int offset, unsigned int size, unsigned int checksum)
+int bp_connection_sendfile(bp_connection_s *connection, const char *command, struct evbuffer_file_segment *segment, unsigned int offset, unsigned int size, unsigned int checksum)
 {
 	bp_proto_message_s header;
 	header.magic = connection->server->program->network_magic;
@@ -245,8 +245,10 @@ int bp_connection_sendfile(bp_connection_s *connection, const char *command, int
 	header.checksum = checksum;
 	
 	bufferevent_write(connection->sockbuf, &header, sizeof(header));
-	if (evbuffer_add_file(bufferevent_get_output(connection->sockbuf), fd, offset, size) < 0) {
-		write_log(4, "Failed to sendfile()");
+	
+	if (evbuffer_add_file_segment(bufferevent_get_output(connection->sockbuf), segment, offset, size) < 0) {
+		printf("Failed to sendfile()\n"); // TODO: this means we have a broken connection now
+		return -1;
 	}
 	
 	return 0;

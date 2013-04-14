@@ -266,6 +266,8 @@ int bp_connection_readinv(bp_connection_s *connection)
 		return -1;
 	}
 	
+	if (invcnt == 0) return 0;
+
 	bp_invvector_s *invreq = bp_invvector_new(invcnt);
 	assert(invreq);
 	
@@ -431,7 +433,7 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 			}
 			
 			write_log(2, "Sent a block");
-			bp_connection_sendfile(connection, block_command, block_fd.fd, block_fd.offset, block_fd.size, block_fd.checksum);
+			bp_connection_sendfile(connection, block_command, block_fd.seg, block_fd.offset, block_fd.size, block_fd.checksum);
 		}
 	}
 	

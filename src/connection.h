@@ -5,6 +5,7 @@
 #pragma once
 #include <sys/socket.h>
 #include <event2/event.h>
+#include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include "program.h"
 #include "server.h"
@@ -62,7 +63,7 @@ void bp_connection_free(bp_connection_s *connection);
 int bp_connection_verifypayload(bp_connection_s* connection);
 int bp_connection_readpayload(bp_connection_s *connection, unsigned char **payload);
 int bp_connection_sendmessage(bp_connection_s *connection, const char *command, unsigned char *payload, unsigned payload_length);
-int bp_connection_sendfile(bp_connection_s *connection, const char *command, int fd, unsigned int offset, unsigned int size, unsigned int checksum);
+int bp_connection_sendfile(bp_connection_s *connection, const char *command, struct evbuffer_file_segment *seg, unsigned int offset, unsigned int size, unsigned int checksum);
 int bp_connection_skipmessage(bp_connection_s *connection);
 int bp_connection_broadcast(bp_connection_s *origin, const char *command, unsigned char *payload, unsigned payload_length);
 ev_uint64_t bp_connection_readvarint(bp_connection_s *connection, size_t *position);
