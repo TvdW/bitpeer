@@ -168,18 +168,8 @@ int bp_connection_sendverack(bp_connection_s *connection)
 
 int bp_connection_readverack(bp_connection_s *connection)
 {
-	if (connection->current_message.length > 1024) {
-		bp_connection_skipmessage(connection);
-		return -1;
-	}
-	
+	bp_connection_skipmessage(connection); // There's no payload anyway.
 	write_log(2, "Peer acknowledged version info");
-	unsigned char *payload;
-	if (bp_connection_readpayload(connection, &payload) < 0) {
-		return -1;
-	}
-	
-	free(payload);
 	
 	connection->verack_recv = 1;
 	if (connection->peer_version) {
