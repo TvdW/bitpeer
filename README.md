@@ -20,11 +20,9 @@ Features
 Usage
 =====
 
-    ./bitpeer [listen_port] [announce_addr:port] [seed_addr:port]
+    ./bitpeer <listen_port> <public_ip[:port]> -n <seed_addr[:port]>
 
-    ./bitpeer 8333 1.2.3.4:8333 5.6.7.8:8333
-
-Some settings are available in `bitpeer.c`.
+    ./bitpeer 8333 1.2.3.4 -n 5.6.7.8:8333
 
 
 Installation
