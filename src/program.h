@@ -15,6 +15,8 @@ struct bp_program_t {
 	bp_addrpool_s addrpool;
 	bp_blockstorage_s blockstorage;
 	bp_txpool_s txpool;
+	char *recent_connects;
+	int recent_connects_pos;
 	
 	void* server_v4;
 	

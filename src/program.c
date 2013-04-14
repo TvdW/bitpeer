@@ -9,6 +9,8 @@
 #include "util.h"
 #include "log.h"
 
+#define RECENT_CONNECT_SIZE 512
+
 int bp_program_init(bp_program_s *program)
 {
 	program->network_magic = 0xD9B4BEF9;
@@ -17,6 +19,9 @@ int bp_program_init(bp_program_s *program)
 	bp_addrpool_init(&program->addrpool, program);
 	bp_blockstorage_init(&program->blockstorage, program);
 	bp_txpool_init(&program->txpool, program->txpool_size);
+	program->recent_connects = malloc(RECENT_CONNECT_SIZE * 18);
+	memset(program->recent_connects, 0, RECENT_CONNECT_SIZE * 18);
+	program->recent_connects_pos = 0;
 	return 0;
 }
 
@@ -31,6 +36,7 @@ void bp_program_deinit(bp_program_s *program)
 	bp_addrpool_deinit(&program->addrpool);
 	bp_blockstorage_deinit(&program->blockstorage);
 	bp_txpool_deinit(&program->txpool);
+	free(program->recent_connects);
 }
 
 static int bp_program_check_valid_ip(bp_proto_net_addr_full_s *ip, void *ctx)
@@ -43,14 +49,19 @@ static int bp_program_check_valid_ip(bp_proto_net_addr_full_s *ip, void *ctx)
 		bp_connection_s *connection = program->connections[i];
 		if (connection == NULL) continue;
 		
-		if (connection->remote_port == ip->port &&
+		if (connection->remote_port == ntohs(ip->port) &&
 			memcmp(connection->remote_addr, ip->address, 16) == 0)
 		{
 			return -1;
 		}
 	}
 	
-	// TODO: have we previously connected to this one
+	// Have we recently connected?
+	for (int i = 0; i < RECENT_CONNECT_SIZE; i++) {
+		if (memcmp(ip->address, program->recent_connects + (18 * i), 18) == 0) {
+			return -1;
+		}
+	}
 	
 	return 0;
 }
@@ -77,6 +88,10 @@ int bp_program_check_connections(bp_program_s *program)
 			}
 			
 			write_log(2, "Connected to new client %u.%u.%u.%u:%u to get minimum connection count", (unsigned char)ip->address[12], (unsigned char)ip->address[13], (unsigned char)ip->address[14], (unsigned char)ip->address[15], ntohs(ip->port));
+			
+			// Write it in our pool
+			memcpy(program->recent_connects + (18 * program->recent_connects_pos), ip->address, 18);
+			program->recent_connects_pos = (program->recent_connects_pos + 1) % RECENT_CONNECT_SIZE;
 		}
 	}
 	
