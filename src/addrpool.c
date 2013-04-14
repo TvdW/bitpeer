@@ -68,7 +68,7 @@ int bp_addrpool_hasaddr(bp_addrpool_s *pool, bp_proto_net_addr_full_s *addr)
 {
 	for (int i = 0; i < pool->fillsize; i++) {
 		bp_proto_net_addr_full_s *entry = ((bp_proto_net_addr_full_s*)pool->raw_storage) + i;
-		if (memcmp(entry, addr, 16) == 0) return 1;
+		if (memcmp(entry->address, addr, 16) == 0) return 1;
 	}
 	
 	return 0;
