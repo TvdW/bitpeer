@@ -40,7 +40,7 @@ const char ping_command[] =        {'p', 'i', 'n', 'g', 0,   0,   0,   0,   0,  
 const char pong_command[] =        {'p', 'o', 'n', 'g', 0,   0,   0,   0,   0,   0,   0,   0  };				// pong          [command]
 const char reply_command[] =       {'r', 'e', 'p', 'l', 'y', 0,   0,   0,   0,   0,   0,   0  };				// reply         [command]
 const char alert_command[] =       {'a', 'l', 'e', 'r', 't', 0,   0,   0,   0,   0,   0,   0  };				// alert         [command]
-const char useragent_str[] =       {13,  '/', 'B', 'i', 't', 'p', 'e', 'e', 'r', ':', '0', '.', '1', '/'};		// /Bitpeer:0.1/ [var_str]
+const char useragent_str[] =       {15,  '/', 'B', 'i', 't', 'p', 'e', 'e', 'r', ':', '0', '.', '1', '.', '1', '/'}; // /Bitpeer:0.1.1/ [var_str]
 
 
 int bp_connection_readmessage(bp_connection_s *connection)
