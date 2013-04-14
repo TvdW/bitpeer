@@ -297,7 +297,7 @@ int bp_connection_readinv(bp_connection_s *connection)
 	}
 	
 	if (invreq->currentindex) {
-		write_log(2, "Sending getdata");
+		write_log(2, "Sending getdata for %u items", invreq->currentindex);
 		char *buf;
 		size_t len = bp_invvector_getbuffer(invreq, &buf);
 		bp_connection_sendmessage(connection, getdata_command, (unsigned char*)buf, len);
@@ -316,7 +316,7 @@ int bp_connection_readtx(bp_connection_s *connection)
 	}
 	
 	if (bp_tx_verify((char*)payload, connection->current_message.length, NULL) < 0) {
-		write_log(2, "Invalid tx received");
+		write_log(2, "Malformed tx received");
 		free(payload);
 		return -1;
 	}
@@ -370,7 +370,7 @@ int bp_connection_readblock(bp_connection_s *connection)
 	
 	// Do we already have it?
 	if (bp_blockstorage_hasblock(&connection->server->program->blockstorage, (char*)hash2) != 0) {
-		write_log(1, "Not storing block we already have");
+		write_log(2, "Not storing block we already have");
 		free(payload);
 		return -1;
 	}
@@ -422,7 +422,7 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 			}
 			
 			// TODO: we already have the checksum...
-			write_log(2, "Sending a tx block to peer");
+			write_log(1, "Sending a tx block to peer");
 			bp_connection_sendmessage(connection, tx_command, (unsigned char*)tx->data, tx->length);
 		
 		} else if (inv_part.type == 2) {
@@ -432,7 +432,7 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 				continue;
 			}
 			
-			write_log(2, "Sent a block");
+			write_log(1, "Sent a block");
 			bp_connection_sendfile(connection, block_command, block_fd.seg, block_fd.offset, block_fd.size, block_fd.checksum);
 		}
 	}
@@ -456,10 +456,10 @@ int bp_connection_readgetblocks(bp_connection_s *connection)
 	size_t position = 4;
 	ev_uint64_t hashcount = bp_readvarint(payload, &position, connection->current_message.length);
 	
-	write_log(2, "Getblocks %d %d %d", *(ev_uint32_t*)(payload), hashcount, connection->current_message.length);
+	write_log(1, "Getblocks %d %d %d", *(ev_uint32_t*)(payload), hashcount, connection->current_message.length);
 	// Length check
 	if ((hashcount * 32) + 32 != connection->current_message.length - position) {
-		write_log(2, "getblocks size mismatch");
+		write_log(3, "getblocks size mismatch");
 		free(payload);
 		return -1;
 	}

@@ -27,7 +27,7 @@ int bp_connection_init(bp_connection_s *connection, bp_server_s *server)
 	connection->connection_id = INT_MAX;
 	
 	if (server->program->cur_connections == server->program->max_connections) {
-		write_log(3, "Rejecting incoming connection because we are at our limit");
+		write_log(4, "Rejecting incoming connection because we are at our limit");
 		return -1;
 	}
 	
@@ -247,7 +247,7 @@ int bp_connection_sendfile(bp_connection_s *connection, const char *command, str
 	bufferevent_write(connection->sockbuf, &header, sizeof(header));
 	
 	if (evbuffer_add_file_segment(bufferevent_get_output(connection->sockbuf), segment, offset, size) < 0) {
-		printf("Failed to sendfile()\n"); // TODO: this means we have a broken connection now
+		write_log(4, "Failed to sendfile()");
 		return -1;
 	}
 	
@@ -291,7 +291,7 @@ int bp_connection_readpayload(bp_connection_s *connection, unsigned char **paylo
 		assert(r == connection->current_message.length);
 	}
 	else {
-		*payload = NULL;
+		return -1;
 	}
 	
 	/* Checksum */

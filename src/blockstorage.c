@@ -151,7 +151,7 @@ int bp_blockstorage_init(bp_blockstorage_s *storage, void *_program)
 	}
 	else {
 		// Begin a new storage chain
-		write_log(2, "Creating a new block chain storage");
+		write_log(2, "Creating a new block chain storage in blk00000.dat");
 		storage->currentblock_fd = fopen("blk00000.dat", "w");
 		storage->currentblock_num = 0;
 		storage->currentblock_offset = 0;

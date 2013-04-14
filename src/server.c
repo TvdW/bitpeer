@@ -57,7 +57,7 @@ int bp_server_listen(bp_server_s *server, unsigned short port)
 static void accept_conn_cb(struct evconnlistener *listener, evutil_socket_t fd,
 						   struct sockaddr *address, int socklen, void* ctx)
 {
-	write_log(1, "Incoming connection");
+	write_log(2, "Incoming connection");
 	bp_server_s *server = ctx;
 	bp_connection_s *conn = malloc(sizeof(bp_connection_s));
 	if (bp_connection_init_socket(conn, server, address, socklen, fd) < 0) {
