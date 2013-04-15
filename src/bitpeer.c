@@ -225,6 +225,7 @@ int main(int argc, char** argv)
 	
 	free(nodeaddrs);
 	free(nodelens);
+	free(nodeperm);
 	
 	/* Run the loop */
 	event_base_loop(program.eventbase, 0);
