@@ -328,6 +328,13 @@ int bp_connection_readtx(bp_connection_s *connection)
 	SHA256(payload, connection->current_message.length, hash1);
 	SHA256(hash1, SHA256_DIGEST_LENGTH, hash2);
 	
+	// Check if we already have it
+	if (bp_txpool_gettx(&connection->server->program->txpool, (char*)hash2) != NULL) {
+		write_log(1, "Received tx we already had");
+		free(payload);
+		return 0;
+	}
+		
 	// We don't have to free the pointer, as the txpool takes it from us
 	bp_txpool_addtx(&connection->server->program->txpool, (char*)payload, connection->current_message.length);
 	
