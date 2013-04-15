@@ -45,6 +45,7 @@ struct bp_connection_t {
 	unsigned in_message:   1;
 	unsigned handsshaken:  1;
 	unsigned is_seed:      1;
+	unsigned is_permanent: 1;
 	
 	ev_int32_t peer_version;
 	

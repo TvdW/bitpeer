@@ -68,7 +68,7 @@ int main(int argc, char** argv)
 	/* Set the settings */
 	bp_program_s program;
 	memset(&program, 0, sizeof(program));
-	program.addrpool_size = 10240;
+	program.addrpool_size = 20480;
 	program.min_connections = 8;
 	program.max_connections = 4096;
 	program.reindex_blocks = 0;
@@ -108,6 +108,7 @@ int main(int argc, char** argv)
 	int nodecount = 0;
 	struct sockaddr *nodeaddrs = NULL;
 	int *nodelens = NULL;
+	int *nodeperm = NULL;
 	
 	/* Now interpret the optional arguments */
 	// Quick preprocessor macro to go to the next argv
@@ -117,11 +118,19 @@ int main(int argc, char** argv)
 		if (strcmp(argv[i], "--reindex") == 0) {
 			program.reindex_blocks = 1;
 		}
-		else if (strcmp(argv[i], "--addnode") == 0 || strcmp(argv[i], "-n") == 0) {
+		else if (strcmp(argv[i], "--addnode") == 0  || strcmp(argv[i], "-n") == 0 ||
+				 strcmp(argv[i], "--addpnode") == 0 || strcmp(argv[i], "-p") == 0) {
 			NEXT_I();
 			nodeaddrs = realloc(nodeaddrs, (nodecount+1) * sizeof(struct sockaddr));
 			nodelens = realloc(nodelens, (nodecount+1) * sizeof(int));
+			nodeperm = realloc(nodeperm, (nodecount+1) * sizeof(int));
 			nodelens[nodecount] = sizeof(struct sockaddr);
+			nodeperm[nodecount] = 0;
+			
+			if (strcmp(argv[i], "--addpnode") == 0 || strcmp(argv[i], "-p") == 0) {
+				nodeperm[nodecount] = 1;
+			}
+			
 			struct sockaddr *addr = &nodeaddrs[nodecount];
 			memset(addr, 0, sizeof(struct sockaddr));
 			
@@ -202,6 +211,7 @@ int main(int argc, char** argv)
 		bp_connection_s *seed_connection = malloc(sizeof(bp_connection_s));
 		bp_connection_connect(seed_connection, &server, &nodeaddrs[i], nodelens[i]);
 		seed_connection->is_seed = 1;
+		seed_connection->is_permanent = nodeperm[i];
 	}
 	
 	free(nodeaddrs);

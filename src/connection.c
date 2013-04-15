@@ -11,6 +11,7 @@
 #include "connection.h"
 #include "commands.h"
 #include "log.h"
+#include "util.h"
 
 int bp_connection_init(bp_connection_s *connection, bp_server_s *server);
 int bp_connection_init_finish(bp_connection_s *connection, struct sockaddr *address, int addrlen);
@@ -179,9 +180,43 @@ void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx)
 	write_log(0, "Received an event (%d)", events);
 	
 	if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) || events & BEV_EVENT_TIMEOUT) {
-		bp_connection_free(connection);
-		
-		bp_program_check_connections(program);
+		if (connection->is_permanent) {
+			// TODO: delay connection ~5s
+			write_log(2, "Reconnecting to permanent node");
+			char remote_addr[16];
+			memcpy(remote_addr, connection->remote_addr, 16);
+			unsigned short remote_port = connection->remote_port;
+			unsigned int is_seed = connection->is_seed;
+			bp_server_s *server = connection->server;
+			
+			bp_connection_free(connection);
+			
+			int r;
+			connection = malloc(sizeof(bp_connection_s));
+			if (bp_addrtype(remote_addr) == 4) {
+				struct sockaddr_in sin;
+				memset(&sin, 0, sizeof(sin));
+				sin.sin_family = AF_INET;
+				sin.sin_port = ntohs(remote_port);
+				memcpy(&sin.sin_addr, remote_addr+12, 4);
+				r = bp_connection_connect(connection, server, (struct sockaddr*)&sin, sizeof(sin));
+			}
+			else {
+				struct sockaddr_in6 sin;
+				memset(&sin, 0, sizeof(sin));
+				sin.sin6_family = AF_INET6;
+				sin.sin6_port = ntohs(remote_port);
+				memcpy(&sin.sin6_addr, remote_addr, 16);
+				r = bp_connection_connect(connection, server, (struct sockaddr*)&sin, sizeof(sin));
+			}
+			assert(r == 0); // This shouldn't fail...
+			connection->is_seed = is_seed;
+			connection->is_permanent = 1;
+		}
+		else {
+			bp_connection_free(connection);
+			bp_program_check_connections(program);
+		}
 	}
 }
 
