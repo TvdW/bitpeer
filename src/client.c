@@ -25,7 +25,8 @@ int bp_connection_post_handshake(bp_connection_s *connection)
 	if (connection->server->program->relay_blocks)
 		addr_msg[5] = 1;
 	memcpy(addr_msg+13, connection->server->local_addr, 16);
-	memcpy(addr_msg+29, &connection->server->local_port, 2);
+	unsigned short local_port = ntohs(connection->server->local_port);
+	memcpy(addr_msg+29, &local_port, 2);
 	bp_connection_sendmessage(connection, addr_command, addr_msg, 31);
 	
 	// TODO: this MUST be moved.
