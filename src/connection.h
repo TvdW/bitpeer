@@ -57,8 +57,8 @@ struct bp_connection_t {
 };
 typedef struct bp_connection_t bp_connection_s;
 
-int bp_connection_connect(bp_connection_s *connection, bp_server_s *server, struct sockaddr *address, int addrlen);
-int bp_connection_init_socket(bp_connection_s *connection, bp_server_s *server, struct sockaddr *address, int addrlen, evutil_socket_t fd);
+int bp_connection_connect(bp_connection_s *connection, bp_server_s *server, struct sockaddr_in6 *address, int addrlen);
+int bp_connection_init_socket(bp_connection_s *connection, bp_server_s *server, struct sockaddr_in6 *address, int addrlen, evutil_socket_t fd);
 void bp_connection_free(bp_connection_s *connection);
 
 int bp_connection_verifypayload(bp_connection_s* connection);

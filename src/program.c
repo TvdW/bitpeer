@@ -50,7 +50,6 @@ void bp_program_deinit(bp_program_s *program)
 static int bp_program_check_valid_ip(bp_proto_net_addr_full_s *ip, void *ctx)
 {
 	bp_program_s *program = ctx;
-	if (bp_addrtype(ip->address) != 4) return -1;
 	
 	// Are we connected to this one already?
 	for (int i = 0; i < program->max_connections; i++) {
@@ -83,19 +82,19 @@ int bp_program_check_connections(bp_program_s *program)
 				break;
 			}
 			
-			struct sockaddr_in sin;
+			struct sockaddr_in6 sin;
 			memset(&sin, 0, sizeof(sin));
-			sin.sin_family = AF_INET;
-			memcpy(&sin.sin_addr, ip->address + 12, 4);
-			sin.sin_port = ip->port;
+			sin.sin6_family = AF_INET6;
+			memcpy(&sin.sin6_addr, ip->address, 16);
+			sin.sin6_port = ip->port;
 			
 			// Connect
 			bp_connection_s *newconn = malloc(sizeof(bp_connection_s));
-			if (bp_connection_connect(newconn, program->server_v4, (struct sockaddr*)&sin, sizeof(sin)) < 0) {
+			if (bp_connection_connect(newconn, program->server, &sin, sizeof(sin)) < 0) {
 				bp_connection_free(newconn);
 			}
 			
-			write_log(2, "Connected to new client %u.%u.%u.%u:%u to get minimum connection count", (unsigned char)ip->address[12], (unsigned char)ip->address[13], (unsigned char)ip->address[14], (unsigned char)ip->address[15], ntohs(ip->port));
+			write_log(2, "Connected to new client to get minimum connection count");
 			
 			// Write it in our pool
 			memcpy(program->recent_connects + (18 * program->recent_connects_pos), ip->address, 18);

@@ -14,7 +14,7 @@
 #include "util.h"
 
 int bp_connection_init(bp_connection_s *connection, bp_server_s *server);
-int bp_connection_init_finish(bp_connection_s *connection, struct sockaddr *address, int addrlen);
+int bp_connection_init_finish(bp_connection_s *connection, struct sockaddr_in6 *address, int addrlen);
 
 void bp_connection_readcb (struct bufferevent *bev, void *ctx);
 void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx);
@@ -47,21 +47,11 @@ int bp_connection_init(bp_connection_s *connection, bp_server_s *server)
 	return 0;
 }
 
-int bp_connection_init_finish(bp_connection_s *connection, struct sockaddr *address, int addrlen)
+int bp_connection_init_finish(bp_connection_s *connection, struct sockaddr_in6 *address, int addrlen)
 {
 	/* Set the address */
-	if (address->sa_family == AF_INET) {
-		connection->remote_addr[10] = connection->remote_addr[11] = (char)0xFF;
-		struct sockaddr_in *addr = (struct sockaddr_in*)address;
-		memcpy(connection->remote_addr + 12, &addr->sin_addr, 4);
-		connection->remote_port = ntohs(addr->sin_port);
-	}
-	else {
-		struct sockaddr_in6 *addr = (struct sockaddr_in6*)address;
-		memcpy(connection->remote_addr, &addr->sin6_addr, 16);
-		connection->remote_port = ntohs(addr->sin6_port);
-	}
-	
+	memcpy(connection->remote_addr, &address->sin6_addr, 16);
+	connection->remote_port = ntohs(address->sin6_port);
 	
 	/* Set the event callbacks */
 	bufferevent_setcb(connection->sockbuf, bp_connection_readcb, NULL, bp_connection_eventcb, connection);
@@ -78,7 +68,7 @@ int bp_connection_init_finish(bp_connection_s *connection, struct sockaddr *addr
 	return 0;
 }
 
-int bp_connection_init_socket(bp_connection_s *connection, bp_server_s *server, struct sockaddr *address, int addrlen, evutil_socket_t fd)
+int bp_connection_init_socket(bp_connection_s *connection, bp_server_s *server, struct sockaddr_in6 *address, int addrlen, evutil_socket_t fd)
 {
 	int r = bp_connection_init(connection, server);
 	if (r < 0) {
@@ -94,7 +84,7 @@ int bp_connection_init_socket(bp_connection_s *connection, bp_server_s *server, 
 	return bp_connection_init_finish(connection, address, addrlen);
 }
 
-int bp_connection_connect(bp_connection_s *connection, bp_server_s *server, struct sockaddr *address, int addrlen)
+int bp_connection_connect(bp_connection_s *connection, bp_server_s *server, struct sockaddr_in6 *address, int addrlen)
 {
 	int r = bp_connection_init(connection, server);
 	if (r < 0) {
@@ -104,7 +94,7 @@ int bp_connection_connect(bp_connection_s *connection, bp_server_s *server, stru
 	connection->sockbuf = bufferevent_socket_new(server->program->eventbase, -1, BEV_OPT_CLOSE_ON_FREE);
 	if (!connection->sockbuf) return -1;
 	
-	if (bufferevent_socket_connect(connection->sockbuf, address, addrlen) < 0) {
+	if (bufferevent_socket_connect(connection->sockbuf, (struct sockaddr*)address, addrlen) < 0) {
 		bufferevent_free(connection->sockbuf);
 		connection->sockbuf = NULL;
 		return -1;
@@ -191,24 +181,15 @@ void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx)
 			
 			bp_connection_free(connection);
 			
-			int r;
+			struct sockaddr_in6 sin;
+			memset(&sin, 0, sizeof(sin));
+			sin.sin6_family = AF_INET6;
+			sin.sin6_port = ntohs(remote_port);
+			memcpy(&sin.sin6_addr, remote_addr, 16);
+			
 			connection = malloc(sizeof(bp_connection_s));
-			if (bp_addrtype(remote_addr) == 4) {
-				struct sockaddr_in sin;
-				memset(&sin, 0, sizeof(sin));
-				sin.sin_family = AF_INET;
-				sin.sin_port = ntohs(remote_port);
-				memcpy(&sin.sin_addr, remote_addr+12, 4);
-				r = bp_connection_connect(connection, server, (struct sockaddr*)&sin, sizeof(sin));
-			}
-			else {
-				struct sockaddr_in6 sin;
-				memset(&sin, 0, sizeof(sin));
-				sin.sin6_family = AF_INET6;
-				sin.sin6_port = ntohs(remote_port);
-				memcpy(&sin.sin6_addr, remote_addr, 16);
-				r = bp_connection_connect(connection, server, (struct sockaddr*)&sin, sizeof(sin));
-			}
+			int r = bp_connection_connect(connection, server, &sin, sizeof(sin));
+			
 			assert(r == 0); // This shouldn't fail...
 			connection->is_seed = is_seed;
 			connection->is_permanent = 1;

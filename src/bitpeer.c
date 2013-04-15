@@ -16,6 +16,7 @@
 #include "program.h"
 #include "server.h"
 #include "btcblock.h"
+#include "util.h"
 
 static void signal_cb(int fd, short event, void *arg)
 {
@@ -84,29 +85,28 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 	
-	unsigned short listen_v4 = atoi(argv[1]);
-	if (listen_v4 == 0) {
+	unsigned short listen_port = atoi(argv[1]);
+	if (listen_port == 0) {
 		printf("Invalid port number specified. Valid ports go from 1 to 65535.\n");
 		return EXIT_FAILURE;
 	}
 	
-	struct sockaddr v4_sockaddr;
-	struct sockaddr_in *v4_sockaddr_p = (struct sockaddr_in*)&v4_sockaddr;
-	int v4_sockaddr_len = sizeof(v4_sockaddr);
-	if (evutil_parse_sockaddr_port(argv[2], &v4_sockaddr, &v4_sockaddr_len) < 0) {
+	struct sockaddr_in6 sockaddr;
+	int sockaddr_len = sizeof(struct sockaddr_in6);
+	if (evutil_parse_sockaddr_port(argv[2], (struct sockaddr*)&sockaddr, &sockaddr_len) < 0) {
 		printf("Invalid public_ip specified\n");
 		return EXIT_FAILURE;
 	}
-	if (v4_sockaddr.sa_family != AF_INET) {
-		printf("public_ip must be IPv4\n");
-		return EXIT_FAILURE;
+	if (sockaddr.sin6_family == AF_INET) {
+		sockaddr = bp_in4to6((struct sockaddr_in*)&sockaddr);
+		sockaddr_len = sizeof(struct sockaddr_in6);
 	}
-	if (v4_sockaddr_p->sin_port == 0) {
-		v4_sockaddr_p->sin_port = ntohs(listen_v4);
+	if (sockaddr.sin6_port == 0) {
+		sockaddr.sin6_port = ntohs(listen_port);
 	}
 	
 	int nodecount = 0;
-	struct sockaddr *nodeaddrs = NULL;
+	struct sockaddr_in6 *nodeaddrs = NULL;
 	int *nodelens = NULL;
 	int *nodeperm = NULL;
 	
@@ -121,25 +121,30 @@ int main(int argc, char** argv)
 		else if (strcmp(argv[i], "--addnode") == 0  || strcmp(argv[i], "-n") == 0 ||
 				 strcmp(argv[i], "--addpnode") == 0 || strcmp(argv[i], "-p") == 0) {
 			NEXT_I();
-			nodeaddrs = realloc(nodeaddrs, (nodecount+1) * sizeof(struct sockaddr));
+			nodeaddrs = realloc(nodeaddrs, (nodecount+1) * sizeof(struct sockaddr_in6));
 			nodelens = realloc(nodelens, (nodecount+1) * sizeof(int));
 			nodeperm = realloc(nodeperm, (nodecount+1) * sizeof(int));
-			nodelens[nodecount] = sizeof(struct sockaddr);
+			nodelens[nodecount] = sizeof(struct sockaddr_in6);
 			nodeperm[nodecount] = 0;
 			
 			if (strcmp(argv[i], "--addpnode") == 0 || strcmp(argv[i], "-p") == 0) {
 				nodeperm[nodecount] = 1;
 			}
 			
-			struct sockaddr *addr = &nodeaddrs[nodecount];
-			memset(addr, 0, sizeof(struct sockaddr));
+			struct sockaddr_in6 *addr = &nodeaddrs[nodecount];
+			memset(addr, 0, sizeof(struct sockaddr_in6));
 			
-			if (evutil_parse_sockaddr_port(argv[i], addr, nodelens+nodecount) < 0) {
+			if (evutil_parse_sockaddr_port(argv[i], (struct sockaddr*)addr, nodelens+nodecount) < 0) {
 				printf("Invalid node address specified: %s %d\n", argv[i], nodelens[nodecount]);
 				return EXIT_FAILURE;
 			}
+			if (addr->sin6_family == AF_INET) {
+				*addr = bp_in4to6((struct sockaddr_in*)addr);
+				nodelens[nodecount] = sizeof(struct sockaddr_in6);
+			}
+			assert(addr->sin6_family == AF_INET6);
 			
-			// TODO: port
+			if (addr->sin6_port == 0) addr->sin6_port = ntohs(8333);
 			
 			nodecount += 1;
 		}
@@ -199,9 +204,9 @@ int main(int argc, char** argv)
 	
 	/* Create a server */
 	bp_server_s server;
-	program.server_v4 = &server;
-	bp_server_init(&server, &program, 4, (char*)&v4_sockaddr_p->sin_addr, v4_sockaddr_p->sin_port);
-	if (bp_server_listen(&server, listen_v4) < 0) {
+	program.server = &server;
+	bp_server_init(&server, &program, (char*)&sockaddr.sin6_addr, ntohs(sockaddr.sin6_port));
+	if (bp_server_listen(&server, listen_port) < 0) {
 		return EXIT_FAILURE;
 	}
 	
@@ -209,7 +214,10 @@ int main(int argc, char** argv)
 	   We will not do this initial discovery ourselves. */
 	for (int i = 0; i < nodecount; i++) {
 		bp_connection_s *seed_connection = malloc(sizeof(bp_connection_s));
-		bp_connection_connect(seed_connection, &server, &nodeaddrs[i], nodelens[i]);
+		int status = bp_connection_connect(seed_connection, &server, &nodeaddrs[i], nodelens[i]);
+		if (status < 0) {
+			printf("Connecting failed\n");
+		}
 		seed_connection->is_seed = 1;
 		seed_connection->is_permanent = nodeperm[i];
 	}

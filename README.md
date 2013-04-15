@@ -43,4 +43,4 @@ When building from a tarball:
 Requirements
 ============
 
-The code currently only requires `libevent2` and `openssl`.
+The code currently only requires the `libevent2` and `openssl` libraries. Kernel support for IPv4 to IPv6 mapping is also required.

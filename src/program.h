@@ -18,7 +18,7 @@ struct bp_program_t {
 	char *recent_connects;
 	int recent_connects_pos;
 	
-	void* server_v4;
+	void* server;
 	
 	void** connections;
 	unsigned int cur_connections;

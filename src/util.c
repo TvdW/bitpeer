@@ -2,6 +2,7 @@
  Copyright (c) 2013, Tom van der Woerdt
  */
 
+#include <assert.h>
 #include <string.h>
 #include "util.h"
 #include "log.h"
@@ -39,11 +40,17 @@ ev_uint64_t bp_readvarint(const unsigned char *buffer, size_t *position, size_t 
 	return 0;
 }
 
-const char v4prefix[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (char)0xFF, (char)0xFF};
-int bp_addrtype(const char *address) {
-	if (memcmp(address, v4prefix, 12) == 0) {
-		return 4;
-	}
+struct sockaddr_in6 bp_in4to6(struct sockaddr_in *orig)
+{
+	assert(orig->sin_family == AF_INET);
+	struct sockaddr_in6 result;
+	memset(&result, 0, sizeof(result));
 	
-	return 6;
+	result.sin6_family = AF_INET6;
+	result.sin6_port = orig->sin_port;
+	unsigned char *addr = result.sin6_addr.s6_addr;
+	addr[10] = addr[11] = 0xFF;
+	memcpy(addr+12, &orig->sin_addr, 4);
+	
+	return result;
 }

@@ -16,6 +16,6 @@ struct bp_server_t {
 typedef struct bp_server_t bp_server_s;
 
 
-int bp_server_init(bp_server_s *server, bp_program_s *program, int family, char *address, unsigned short port);
+int bp_server_init(bp_server_s *server, bp_program_s *program, char *address, unsigned short port);
 int bp_server_deinit(bp_server_s *server);
 int bp_server_listen(bp_server_s *server, unsigned short port);
