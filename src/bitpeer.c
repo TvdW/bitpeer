@@ -168,13 +168,16 @@ int main(int argc, char** argv)
 				return EXIT_FAILURE;
 			}
 		}
+		else if (strcmp(argv[i], "--evdebug") == 0) {
+			event_enable_debug_logging(EVENT_DBG_ALL);
+			event_set_log_callback(log_cb);
+			event_enable_debug_mode();
+		}
 	}
 	
 	/* Create the main loop */
 	bp_program_init(&program);
 	
-	event_set_log_callback(log_cb);
-	event_enable_debug_mode();
 	program.eventbase = event_base_new();
 
 	/* Set up the signal handler */
