@@ -576,6 +576,18 @@ int bp_blockstorage_nextblock(bp_blockstorage_s *storage)
 int bp_blockstorage_store_genesis(bp_blockstorage_s *storage)
 {
 	assert(bp_blockstorage_getheight(storage) == 0);
+	
+	// Since we only execute this code once, this would be a good time to check our hashing
+	unsigned char hash1[SHA256_DIGEST_LENGTH], hash2[SHA256_DIGEST_LENGTH];
+	SHA256(genesis_block, 80, hash1);
+	SHA256(hash1, SHA256_DIGEST_LENGTH, hash2);
+	assert(memcmp(hash2, genesis_hash, SHA256_DIGEST_LENGTH) == 0);
+
+	// And the hash that's in it as well
+	SHA256(genesis_block+81, 204, hash1);
+	SHA256(hash1, SHA256_DIGEST_LENGTH, hash2);
+	assert(memcmp(hash2, genesis_block+36, 32) == 0);
+	
 	return bp_blockstorage_store(storage, (char*)genesis_hash, (bp_btcblock_header_s*)genesis_block, (char*)genesis_block+80, 205);
 }
 
