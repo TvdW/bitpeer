@@ -17,8 +17,12 @@ int bp_program_init(bp_program_s *program)
 	program->connections = malloc(program->max_connections * sizeof(void*));
 	memset(program->connections, 0, program->max_connections * sizeof(void*));
 	bp_addrpool_init(&program->addrpool, program);
-	bp_blockstorage_init(&program->blockstorage, program);
-	bp_txpool_init(&program->txpool, program->txpool_size);
+	
+	if (program->relay_blocks)
+		bp_blockstorage_init(&program->blockstorage, program);
+	if (program->relay_transactions)
+		bp_txpool_init(&program->txpool, program->txpool_size);
+	
 	program->recent_connects = malloc(RECENT_CONNECT_SIZE * 18);
 	memset(program->recent_connects, 0, RECENT_CONNECT_SIZE * 18);
 	program->recent_connects_pos = 0;
@@ -34,8 +38,12 @@ void bp_program_deinit(bp_program_s *program)
 	
 	free(program->connections);
 	bp_addrpool_deinit(&program->addrpool);
-	bp_blockstorage_deinit(&program->blockstorage);
-	bp_txpool_deinit(&program->txpool);
+	
+	if (program->relay_blocks)
+		bp_blockstorage_deinit(&program->blockstorage);
+	if (program->relay_transactions)
+		bp_txpool_deinit(&program->txpool);
+	
 	free(program->recent_connects);
 }
 

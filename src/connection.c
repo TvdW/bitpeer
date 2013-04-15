@@ -310,7 +310,7 @@ int bp_connection_readpayload(bp_connection_s *connection, unsigned char **paylo
 	return 0;
 }
 
-/* Verifies a block without loading it */
+/* Verifies a payload without loading it */
 int bp_connection_verifypayload(bp_connection_s* connection)
 {
 	struct evbuffer *input = bufferevent_get_input(connection->sockbuf);

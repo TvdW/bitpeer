@@ -22,13 +22,15 @@ int bp_connection_post_handshake(bp_connection_s *connection)
 	addr_msg[0] = 1;
 	int t = time(0);
 	memcpy(addr_msg+1, &t, 4);
-	addr_msg[5] = 1;
+	if (connection->server->program->relay_blocks)
+		addr_msg[5] = 1;
 	memcpy(addr_msg+13, connection->server->local_addr, 16);
 	memcpy(addr_msg+29, &connection->server->local_port, 2);
 	bp_connection_sendmessage(connection, addr_command, addr_msg, 31);
 	
 	// TODO: this MUST be moved.
-	bp_connection_sendgetblocks(connection, NULL);
+	if (connection->server->program->relay_blocks)
+		bp_connection_sendgetblocks(connection, NULL);
 	
 	return 0;
 }

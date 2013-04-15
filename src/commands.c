@@ -97,7 +97,10 @@ int bp_connection_sendversion(bp_connection_s *connection)
 	memset(&payload, 0, sizeof(payload));
 	bp_proto_version_s *msghead = (bp_proto_version_s*)payload;
 	msghead->version = client_version;
-	msghead->services = BP_PROTO_NODE_NETWORK;
+	if (connection->server->program->relay_blocks)
+		msghead->services = BP_PROTO_NODE_NETWORK;
+	else
+		msghead->services = 0;
 	msghead->timestamp = (ev_uint64_t)time(0);
 	msghead->nonce = 123; // TODO
 	memcpy(payload+80, useragent_str, sizeof(useragent_str));
@@ -108,7 +111,9 @@ int bp_connection_sendversion(bp_connection_s *connection)
 	memcpy(msghead->addr_from.address, connection->server->local_addr, 16);
 	msghead->addr_from.port = ntohs(connection->server->local_port);
 	
-	unsigned int start_height = bp_blockstorage_getheight(&connection->server->program->blockstorage);
+	unsigned int start_height = 0;
+	if (connection->server->program->relay_blocks)
+		start_height = bp_blockstorage_getheight(&connection->server->program->blockstorage);
 	memcpy(payload + 80 + sizeof(useragent_str), &start_height, 4);
 	
 	if (connection->server->program->relay_transactions)
@@ -123,6 +128,8 @@ int bp_connection_readversion(bp_connection_s *connection)
 		bp_connection_skipmessage(connection);
 		return -1;
 	}
+	
+	// TODO: read the 'relay' part of the version message
 	
 	if (connection->peer_version) {
 		// This is bad. Can we just skip it?
@@ -266,7 +273,7 @@ int bp_connection_readinv(bp_connection_s *connection)
 		bp_proto_inv_s inv_part;
 		bufferevent_read(connection->sockbuf, &inv_part, sizeof(inv_part));
 		
-		if (inv_part.type == 2) { // block
+		if (inv_part.type == 2 && connection->server->program->relay_blocks) { // block
 			if (bp_blockstorage_hasblock(&connection->server->program->blockstorage, inv_part.hash) > 0) {
 				//printf("We have it though\n");
 			}
@@ -275,7 +282,7 @@ int bp_connection_readinv(bp_connection_s *connection)
 				bp_invvector_add(invreq, 2, inv_part.hash);
 			}
 		}
-		else if (inv_part.type == 1) { // tx
+		else if (inv_part.type == 1 && connection->server->program->relay_transactions) { // tx
 			if (bp_txpool_gettx(&connection->server->program->txpool, inv_part.hash) != NULL) {
 				//printf("We have it though\n");
 			}
@@ -300,6 +307,10 @@ int bp_connection_readinv(bp_connection_s *connection)
 
 int bp_connection_readtx(bp_connection_s *connection)
 {
+	if (!connection->server->program->relay_transactions) {
+		return bp_connection_skipmessage(connection);
+	}
+	
 	unsigned char *payload;
 	if (bp_connection_readpayload(connection, &payload) < 0) {
 		return -1;
@@ -333,6 +344,10 @@ int bp_connection_readtx(bp_connection_s *connection)
 
 int bp_connection_readblock(bp_connection_s *connection)
 {
+	if (!connection->server->program->relay_blocks) {
+		return bp_connection_skipmessage(connection);
+	}
+	
 	if (connection->current_message.length < sizeof(bp_btcblock_header_s)) {
 		bp_connection_skipmessage(connection);
 		return -1;
@@ -402,7 +417,7 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 		bp_proto_inv_s inv_part;
 		bufferevent_read(connection->sockbuf, &inv_part, sizeof(inv_part));
 		
-		if (inv_part.type == 1) { // tx
+		if (inv_part.type == 1 && connection->server->program->relay_transactions) { // tx
 			bp_txpool_tx_s *tx = bp_txpool_gettx(&connection->server->program->txpool, inv_part.hash);
 			if (!tx) {
 				// Not found. // TODO: group these
@@ -415,7 +430,7 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 			write_log(1, "Sending a tx block to peer");
 			bp_connection_sendmessage(connection, tx_command, (unsigned char*)tx->data, tx->length);
 		
-		} else if (inv_part.type == 2) {
+		} else if (inv_part.type == 2 && connection->server->program->relay_blocks) {
 			bp_blockstorage_fd_s block_fd;
 			if (bp_blockstorage_getfd(&connection->server->program->blockstorage, inv_part.hash, &block_fd) < 0) {
 				write_log(2, "Peer requested unknown block");
@@ -432,6 +447,10 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 
 int bp_connection_readgetblocks(bp_connection_s *connection)
 {
+	if (!connection->server->program->relay_blocks) {
+		return bp_connection_skipmessage(connection);
+	}
+	
 	if (connection->current_message.length > 10000) {
 		write_log(2, "Skipping extremely large getblocks message");
 		bp_connection_skipmessage(connection);
@@ -498,6 +517,8 @@ int bp_connection_readgetblocks(bp_connection_s *connection)
 
 int bp_connection_sendgetblocks(bp_connection_s *connection, char *for_hash)
 {
+	assert(connection->server->program->relay_blocks);
+	
 	bp_blockstorage_s *storage = &connection->server->program->blockstorage;
 	unsigned int height = bp_blockstorage_getheight(storage);
 	

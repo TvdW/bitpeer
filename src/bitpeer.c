@@ -69,11 +69,11 @@ int main(int argc, char** argv)
 	bp_program_s program;
 	memset(&program, 0, sizeof(program));
 	program.addrpool_size = 10240;
-	program.min_connections = 32;
+	program.min_connections = 8;
 	program.max_connections = 4096;
 	program.reindex_blocks = 0;
 	program.relay_transactions = 1;
-	program.relay_blocks = 0;
+	program.relay_blocks = 1;
 	program.txpool_size = 1024;
 	
 	/* Interpret the command line */
@@ -113,7 +113,7 @@ int main(int argc, char** argv)
 	// Quick preprocessor macro to go to the next argv
 	
 #define NEXT_I() {i++; if (i >= argc) { printf("Argument for %s missing\n", argv[i-1]); return EXIT_FAILURE; }}
-	for (int i = 2; i < argc; i++) {
+	for (int i = 3; i < argc; i++) {
 		if (strcmp(argv[i], "--reindex") == 0) {
 			program.reindex_blocks = 1;
 		}
@@ -172,6 +172,10 @@ int main(int argc, char** argv)
 			event_enable_debug_logging(EVENT_DBG_ALL);
 			event_set_log_callback(log_cb);
 			event_enable_debug_mode();
+		}
+		else {
+			printf("Unknown argument '%s'\n", argv[i]);
+			return EXIT_FAILURE;
 		}
 	}
 	
