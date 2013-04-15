@@ -127,7 +127,8 @@ int main(int argc, char** argv)
 			nodelens[nodecount] = sizeof(struct sockaddr_in6);
 			nodeperm[nodecount] = 0;
 			
-			if (strcmp(argv[i], "--addpnode") == 0 || strcmp(argv[i], "-p") == 0) {
+			if (strcmp(argv[i-1], "--addpnode") == 0 || strcmp(argv[i-1], "-p") == 0) {
+				printf("Adding a permanent node\n");
 				nodeperm[nodecount] = 1;
 			}
 			
