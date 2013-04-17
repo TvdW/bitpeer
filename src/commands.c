@@ -414,10 +414,12 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 	size_t remaining_len = connection->current_message.length;
 	ev_uint64_t getdatacnt = bp_connection_readvarint(connection, &remaining_len);
 	
-	if (remaining_len != getdatacnt * 36) {
+	if (remaining_len != getdatacnt * 36 || getdatacnt > 500) {
 		evbuffer_drain(bufferevent_get_input(connection->sockbuf), remaining_len);
 		return -1;
 	}
+	
+	bp_invvector_s *notfound = bp_invvector_new(getdatacnt);
 	
 	ev_uint64_t i;
 	for (i = 0; i < getdatacnt; i++) {
@@ -427,9 +429,8 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 		if (inv_part.type == 1 && connection->server->program->relay_transactions) { // tx
 			bp_txpool_tx_s *tx = bp_txpool_gettx(&connection->server->program->txpool, inv_part.hash);
 			if (!tx) {
-				// Not found. // TODO: group these
-				// TODO: notfound
-				write_log(2, "Peer requested unknown tx block");
+				bp_invvector_add(notfound, inv_part.type, inv_part.hash);
+				write_log(1, "Peer requested unknown tx block");
 				continue;
 			}
 			
@@ -440,7 +441,8 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 		} else if (inv_part.type == 2 && connection->server->program->relay_blocks) {
 			bp_blockstorage_fd_s block_fd;
 			if (bp_blockstorage_getfd(&connection->server->program->blockstorage, inv_part.hash, &block_fd) < 0) {
-				write_log(2, "Peer requested unknown block");
+				bp_invvector_add(notfound, inv_part.type, inv_part.hash);
+				write_log(1, "Peer requested unknown block");
 				continue;
 			}
 			
@@ -448,6 +450,15 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 			bp_connection_sendfile(connection, block_command, block_fd.seg, block_fd.offset, block_fd.size, block_fd.checksum);
 		}
 	}
+	
+	if (notfound->currentindex) {
+		write_log(2, "Sending notfound for %u items", notfound->currentindex);
+		char *buf;
+		size_t len = bp_invvector_getbuffer(notfound, &buf);
+		bp_connection_sendmessage(connection, notfound_command, (unsigned char*)buf, len);
+	}
+	
+	bp_invvector_free(notfound);
 	
 	return 0;
 }
