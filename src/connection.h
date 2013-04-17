@@ -39,6 +39,7 @@ typedef struct bp_proto_inv_t bp_proto_inv_s;
 struct bp_connection_t {
 	struct bufferevent 	*sockbuf;
 	bp_server_s *server;
+	struct event *reconnect_timer;
 	
 	unsigned version_sent: 1;
 	unsigned verack_recv:  1;

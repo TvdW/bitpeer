@@ -194,6 +194,13 @@ int main(int argc, char** argv)
 		}
 	}
 	
+	/* Ignore SIGPIPE */
+	struct sigaction act;
+	act.sa_handler = SIG_IGN;
+	sigemptyset(&act.sa_mask);
+	act.sa_flags = 0;
+	sigaction(SIGPIPE, &act, NULL);
+	
 	/* Create the main loop */
 	bp_program_init(&program);
 	

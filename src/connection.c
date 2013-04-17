@@ -13,17 +13,17 @@
 #include "log.h"
 #include "util.h"
 
-int bp_connection_init(bp_connection_s *connection, bp_server_s *server);
-int bp_connection_init_finish(bp_connection_s *connection, struct sockaddr_in6 *address, int addrlen);
+static int bp_connection_init(bp_connection_s *connection, bp_server_s *server);
+static int bp_connection_init_finish(bp_connection_s *connection, struct sockaddr_in6 *address, int addrlen);
 
-void bp_connection_readcb (struct bufferevent *bev, void *ctx);
-void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx);
+static void bp_connection_readcb (struct bufferevent *bev, void *ctx);
+static void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx);
+static void bp_connection_reconnect(evutil_socket_t, short what, void *ctx);
 
 /* Initialization */
 int bp_connection_init(bp_connection_s *connection, bp_server_s *server)
 {
 	memset(connection, 0, sizeof(bp_connection_s));
-	connection->remote_addr[11] = connection->remote_addr[10] = (char)0xFF;
 	connection->server = server;
 	connection->connection_id = INT_MAX;
 	
@@ -114,6 +114,7 @@ void bp_connection_free(bp_connection_s *connection)
 		program->cur_connections -= 1;
 	}
 	
+	if (connection->reconnect_timer) event_free(connection->reconnect_timer);
 	if (connection->sockbuf) bufferevent_free(connection->sockbuf);
 	free(connection);
 }
@@ -161,6 +162,33 @@ begin:
 	goto begin;
 }
 
+static void bp_connection_reconnect(evutil_socket_t sock, short what, void *ctx)
+{
+	bp_connection_s *connection = (bp_connection_s*)ctx;
+	write_log(2, "Reconnecting to permanent node");
+	
+	char remote_addr[16];
+	memcpy(remote_addr, connection->remote_addr, 16);
+	unsigned short remote_port = connection->remote_port;
+	unsigned int is_seed = connection->is_seed;
+	bp_server_s *server = connection->server;
+	
+	bp_connection_free(connection);
+	
+	struct sockaddr_in6 sin;
+	memset(&sin, 0, sizeof(sin));
+	sin.sin6_family = AF_INET6;
+	sin.sin6_port = ntohs(remote_port);
+	memcpy(&sin.sin6_addr, remote_addr, 16);
+	
+	connection = malloc(sizeof(bp_connection_s));
+	int r = bp_connection_connect(connection, server, &sin, sizeof(sin));
+	
+	assert(r == 0); // This shouldn't fail...
+	connection->is_seed = is_seed;
+	connection->is_permanent = 1;
+}
+
 void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx)
 {
 	bp_connection_s *connection = (bp_connection_s*)ctx;
@@ -169,30 +197,19 @@ void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx)
 	assert(connection->sockbuf == bev);
 	write_log(0, "Received an event (%d)", events);
 	
-	if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR) || events & BEV_EVENT_TIMEOUT) {
+	if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR | BEV_EVENT_TIMEOUT)) {
 		if (connection->is_permanent) {
-			// TODO: delay connection ~5s
-			write_log(2, "Reconnecting to permanent node");
-			char remote_addr[16];
-			memcpy(remote_addr, connection->remote_addr, 16);
-			unsigned short remote_port = connection->remote_port;
-			unsigned int is_seed = connection->is_seed;
-			bp_server_s *server = connection->server;
+			if (connection->reconnect_timer) return;
 			
-			bp_connection_free(connection);
-			
-			struct sockaddr_in6 sin;
-			memset(&sin, 0, sizeof(sin));
-			sin.sin6_family = AF_INET6;
-			sin.sin6_port = ntohs(remote_port);
-			memcpy(&sin.sin6_addr, remote_addr, 16);
-			
-			connection = malloc(sizeof(bp_connection_s));
-			int r = bp_connection_connect(connection, server, &sin, sizeof(sin));
-			
-			assert(r == 0); // This shouldn't fail...
-			connection->is_seed = is_seed;
-			connection->is_permanent = 1;
+			// Partial free
+			if (connection->sockbuf) {
+				bufferevent_free(connection->sockbuf);
+				connection->sockbuf = NULL;
+			}
+			connection->reconnect_timer = evtimer_new(bufferevent_get_base(bev), bp_connection_reconnect, connection);
+			struct timeval tv;
+			tv.tv_sec = 5; tv.tv_usec = 0;
+			evtimer_add(connection->reconnect_timer, &tv);
 		}
 		else {
 			bp_connection_free(connection);
