@@ -27,6 +27,7 @@ int bp_tx_verify(char *tx, size_t tx_len, size_t *store_length)
 		ev_uint64_t script_len = bp_readvarint((unsigned char*)tx, &position, tx_len);
 		if (tx_len - position < script_len + 4) return -1;
 		// TODO: check script
+		if (script_len > 10000) return -1;
 		
 		position += script_len;
 		

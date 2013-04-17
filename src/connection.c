@@ -258,7 +258,7 @@ int bp_connection_broadcast(bp_connection_s *origin, const char *command, unsign
 	for (i = 0; i < origin->server->program->max_connections; i++) {
 		bp_connection_s *conn = origin->server->program->connections[i];
 		if (conn == NULL || conn == origin) continue;
-		if (!conn->handsshaken) continue;
+		if (!conn->handsshaken || !conn->sockbuf) continue;
 		assert(conn->version_sent && conn->verack_recv);
 		
 		bufferevent_write(conn->sockbuf, &header, sizeof(header));
