@@ -21,16 +21,16 @@ struct bp_proto_net_addr_full_t {
 typedef struct bp_proto_net_addr_full_t bp_proto_net_addr_full_s;
 
 struct bp_addrpool_t {
-	void *program;
-	void *raw_storage;
+	char *raw_storage;
 	unsigned int size;
-	unsigned int fillsize;
+	unsigned int writepos;
 	unsigned int readpos;
+	unsigned int count;
 };
 typedef struct bp_addrpool_t bp_addrpool_s;
 
 
-int bp_addrpool_init(bp_addrpool_s *pool, void *program);
+int bp_addrpool_init(bp_addrpool_s *pool, unsigned int size);
 void bp_addrpool_deinit(bp_addrpool_s *pool);
 
 int bp_addrpool_add(bp_addrpool_s *pool, bp_proto_net_addr_full_s *entry);

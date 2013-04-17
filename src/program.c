@@ -16,7 +16,8 @@ int bp_program_init(bp_program_s *program)
 	program->network_magic = 0xD9B4BEF9;
 	program->connections = malloc(program->max_connections * sizeof(void*));
 	memset(program->connections, 0, program->max_connections * sizeof(void*));
-	bp_addrpool_init(&program->addrpool, program);
+	
+	bp_addrpool_init(&program->addrpool, program->addrpool_size);
 	
 	if (program->relay_blocks)
 		bp_blockstorage_init(&program->blockstorage, program);
