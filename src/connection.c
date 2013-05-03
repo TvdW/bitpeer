@@ -279,8 +279,9 @@ int bp_connection_sendfile(bp_connection_s *connection, const char *command, str
 	header.length = size;
 	header.checksum = checksum;
 	
-	bufferevent_write(connection->sockbuf, &header, sizeof(header));
-	
+	write_log(0, "Segment %p with offset %u and size %u", (void*)segment, offset, size);
+
+	evbuffer_add(bufferevent_get_output(connection->sockbuf), &header, sizeof(header));
 	if (evbuffer_add_file_segment(bufferevent_get_output(connection->sockbuf), segment, offset, size) < 0) {
 		write_log(4, "Failed to sendfile()");
 		return -1;
