@@ -26,6 +26,7 @@ int bp_connection_init(bp_connection_s *connection, bp_server_s *server)
 	memset(connection, 0, sizeof(bp_connection_s));
 	connection->server = server;
 	connection->connection_id = INT_MAX;
+	connection->continue_block = 0;
 	
 	if (server->program->cur_connections == server->program->max_connections) {
 		write_log(4, "Rejecting incoming connection because we are at our limit");
@@ -142,6 +143,7 @@ begin:
 	}
 	
 	if (connection->in_message == 1) {
+		write_log(0, "Current message (%s) is %u bytes", connection->current_message.command, connection->current_message.length);
 		if (len < connection->current_message.length) {
 			return;
 		}

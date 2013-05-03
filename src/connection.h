@@ -55,6 +55,7 @@ struct bp_connection_t {
 	char remote_addr[16];
 	unsigned short remote_port;
 	unsigned int connection_id;
+	unsigned int continue_block;
 };
 typedef struct bp_connection_t bp_connection_s;
 

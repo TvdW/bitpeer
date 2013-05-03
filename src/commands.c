@@ -22,6 +22,7 @@
 
 // Constants for the network protocol. Ugly but efficient
 const ev_int32_t client_version =  70001;
+const ev_int32_t blocks_per_getblocks = 500;
 const char version_command[] =     {'v', 'e', 'r', 's', 'i', 'o', 'n', 0,   0,   0,   0,   0  };				// version       [command]
 const char verack_command[] =      {'v', 'e', 'r', 'a', 'c', 'k', 0,   0,   0,   0,   0,   0  };				// verack        [command]
 const char addr_command[] =        {'a', 'd', 'd', 'r', 0,   0,   0,   0,   0,   0,   0,   0  };				// addr          [command]
@@ -414,7 +415,7 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 	size_t remaining_len = connection->current_message.length;
 	ev_uint64_t getdatacnt = bp_connection_readvarint(connection, &remaining_len);
 	
-	if (remaining_len != getdatacnt * 36 || getdatacnt > 500) {
+	if (remaining_len != getdatacnt * 36 || getdatacnt > blocks_per_getblocks) {
 		evbuffer_drain(bufferevent_get_input(connection->sockbuf), remaining_len);
 		return -1;
 	}
@@ -446,8 +447,26 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 				continue;
 			}
 			
-			write_log(1, "Sent a block");
+			write_log(1, "Sent a block of %u bytes", block_fd.size);
 			bp_connection_sendfile(connection, block_command, block_fd.seg, block_fd.offset, block_fd.size, block_fd.checksum);
+
+			if (connection->continue_block != 0) {
+				char *continue_hash = bp_blockstorage_getatindex(&connection->server->program->blockstorage, connection->continue_block);
+				if (memcmp(continue_hash, inv_part.hash, 32) == 0) {
+					connection->continue_block = 0;
+
+					// Send an inv with the top block we have, to make the client send a getblocks again
+					write_log(1, "Helping the client discover new blocks");
+					char *topblock = bp_blockstorage_gettop(&connection->server->program->blockstorage);
+					assert(topblock);
+					bp_invvector_s *topinv = bp_invvector_new(1);
+					bp_invvector_add(topinv, inv_part.type, topblock);
+					char *buf;
+					size_t len = bp_invvector_getbuffer(topinv, &buf);
+					bp_connection_sendmessage(connection, inv_command, (unsigned char*)buf, len);
+					bp_invvector_free(topinv);
+				}
+			}
 		}
 	}
 	
@@ -483,7 +502,7 @@ int bp_connection_readgetblocks(bp_connection_s *connection)
 	size_t position = 4;
 	ev_uint64_t hashcount = bp_readvarint(payload, &position, connection->current_message.length);
 	
-	write_log(1, "Getblocks %d %d %d", *(ev_uint32_t*)(payload), hashcount, connection->current_message.length);
+	write_log(1, "Getblocks %d %d %u", *(ev_uint32_t*)(payload), hashcount, connection->current_message.length);
 	// Length check
 	if ((hashcount * 32) + 32 != connection->current_message.length - position) {
 		write_log(3, "getblocks size mismatch");
@@ -496,7 +515,7 @@ int bp_connection_readgetblocks(bp_connection_s *connection)
 		char *hash = (char*)payload + position;
 		position += 32;
 		
-		best_known_hash = bp_blockstorage_getnum(&connection->server->program->blockstorage, hash);
+		best_known_hash = bp_blockstorage_getnum(&connection->server->program->blockstorage, hash) + 1;
 		if (best_known_hash >= 0) {
 			break;
 		}
@@ -511,10 +530,11 @@ int bp_connection_readgetblocks(bp_connection_s *connection)
 	
 	int send_hashcount = final_hash - best_known_hash;
 	if (send_hashcount <= 0) {
+		write_log(1, "No blocks to send");
 		return 0;
 	}
 	
-	if (send_hashcount > 500) send_hashcount = 500;
+	if (send_hashcount > blocks_per_getblocks) send_hashcount = blocks_per_getblocks;
 	
 	// Sends a grouped reply of all hashes
 	bp_invvector_s *inv_vec = bp_invvector_new(send_hashcount);
@@ -524,6 +544,7 @@ int bp_connection_readgetblocks(bp_connection_s *connection)
 		char *hashtosend = bp_blockstorage_getatindex(&connection->server->program->blockstorage, i + best_known_hash);
 		bp_invvector_add(inv_vec, 2, hashtosend);
 	}
+	connection->continue_block = best_known_hash + send_hashcount - 1;
 	
 	char *buffer;
 	size_t len = bp_invvector_getbuffer(inv_vec, &buffer);
