@@ -1,4 +1,4 @@
-AC_INIT([Bitpeer], [0.2.1])
+AC_INIT([Bitpeer], [0.2.2])
 AC_PREREQ([2.59])
 AM_INIT_AUTOMAKE([foreign])
 
