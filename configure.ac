@@ -14,5 +14,12 @@ AC_CHECK_HEADERS([openssl/sha.h], [], [AC_MSG_ERROR([openssl headers not found])
 PKG_CHECK_MODULES([libevent], [libevent >= 2.1])
 AC_CHECK_HEADERS([event2/buffer.h], [], [AC_MSG_ERROR([libevent headers not found])])
 
+AC_ARG_ENABLE([file-segments],
+	AS_HELP_STRING([--disable-file-segments], [Disable file segment support]))
+
+AS_IF([test "x$enable_file_segments" != "xno"], [
+	AC_DEFINE([HAVE_FILE_SEGMENTS], [], [using file segments])
+])
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

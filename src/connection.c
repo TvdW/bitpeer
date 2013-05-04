@@ -17,6 +17,7 @@ static int bp_connection_init(bp_connection_s *connection, bp_server_s *server);
 static int bp_connection_init_finish(bp_connection_s *connection, struct sockaddr_in6 *address, int addrlen);
 
 static void bp_connection_readcb (struct bufferevent *bev, void *ctx);
+static void bp_connection_writecb(struct bufferevent *bev, void *ctx);
 static void bp_connection_eventcb(struct bufferevent *bev, short events, void *ctx);
 static void bp_connection_reconnect(evutil_socket_t, short what, void *ctx);
 
@@ -55,7 +56,7 @@ int bp_connection_init_finish(bp_connection_s *connection, struct sockaddr_in6 *
 	connection->remote_port = ntohs(address->sin6_port);
 	
 	/* Set the event callbacks */
-	bufferevent_setcb(connection->sockbuf, bp_connection_readcb, NULL, bp_connection_eventcb, connection);
+	bufferevent_setcb(connection->sockbuf, bp_connection_readcb, bp_connection_writecb, bp_connection_eventcb, connection);
 	
 	struct timeval timeout;
 	timeout.tv_sec = 120;
@@ -148,20 +149,33 @@ begin:
 			return;
 		}
 		
+		int command_result = 0;
 		if (connection->current_message.magic != connection->server->program->network_magic) {
 			bp_connection_skipmessage(connection);
 		}
 		else {
-			bp_connection_readmessage(connection);
+			command_result = bp_connection_readmessage(connection);
 		}
 		
 		connection->in_message = 0;
 		len -= connection->current_message.length;
+
+		if (command_result == BP_CONNECTION_WRITE_FIRST) {
+			// We really need this assertion
+			assert(evbuffer_get_length(input) == len);
+			
+			return;
+		}
 	}
 	
 	assert(evbuffer_get_length(input) == len);
 	
 	goto begin;
+}
+
+void bp_connection_writecb(struct bufferevent *bev, void *ctx)
+{
+	bp_connection_readcb(bev, ctx);
 }
 
 static void bp_connection_reconnect(evutil_socket_t sock, short what, void *ctx)
@@ -236,6 +250,7 @@ int bp_connection_sendmessage(bp_connection_s *connection, const char *command, 
 	SHA256(shabuf1, SHA256_DIGEST_LENGTH, shabuf2);
 	header.checksum = *(ev_uint32_t*)(shabuf2);
 	
+	write_log(0, "Sending %s message with length %u", command, payload_length);
 	bufferevent_write(connection->sockbuf, &header, sizeof(header));
 	if (payload_length)
 		bufferevent_write(connection->sockbuf, payload, payload_length);
@@ -271,6 +286,7 @@ int bp_connection_broadcast(bp_connection_s *origin, const char *command, unsign
 	return 0;
 }
 
+#ifdef HAVE_FILE_SEGMENTS
 int bp_connection_sendfile(bp_connection_s *connection, const char *command, struct evbuffer_file_segment *segment, unsigned int offset, unsigned int size, unsigned int checksum)
 {
 	bp_proto_message_s header;
@@ -286,10 +302,29 @@ int bp_connection_sendfile(bp_connection_s *connection, const char *command, str
 		write_log(4, "Failed to sendfile()");
 		return -1;
 	}
-	
+
 	return 0;
 }
+#else
+int bp_connection_sendfile(bp_connection_s *connection, const char *command, int fd, unsigned int offset, unsigned int size, unsigned int checksum)
+{
+	bp_proto_message_s header;
+	header.magic = connection->server->program->network_magic;
+	memcpy(header.command, command, 12);
+	header.length = size;
+	header.checksum = checksum;
 
+	write_log(0, "FD %d with offset %u and size %u", fd, offset, size);
+
+	evbuffer_add(bufferevent_get_output(connection->sockbuf), &header, sizeof(header));
+	if (evbuffer_add_file(bufferevent_get_output(connection->sockbuf), fd, offset, size) < 0) {
+		write_log(4, "Failed to sendfile()");
+		return -1;
+	}
+
+	return 0;
+}
+#endif
 
 /* Protocol recv functions */
 ev_uint64_t bp_connection_readvarint(bp_connection_s *connection, size_t *len)

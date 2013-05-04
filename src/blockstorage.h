@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <event2/event.h>
 #include "btcblock.h"
+#include "config.h"
 
 
 struct bp_blockstorage_hashnode_t {
@@ -24,7 +25,11 @@ typedef struct bp_blockstorage_hashmap_t bp_blockstorage_hashmap_s;
 
 
 struct bp_blockstorage_fd_t {
-	struct evbuffer_file_segment *seg;
+#ifdef HAVE_FILE_SEGMENTS
+	struct evbuffer_file_segment *fd;
+#else
+	int fd;
+#endif
 	unsigned int offset;
 	unsigned int size;
 	unsigned int checksum;
@@ -51,8 +56,10 @@ struct bp_blockstorage_t {
 	unsigned int currentblock_num;
 	unsigned int currentblock_offset;
 	unsigned do_rechain: 1;
-	
+
+#ifdef HAVE_FILE_SEGMENTS
 	struct evbuffer_file_segment **block_fds;
+#endif
 };
 typedef struct bp_blockstorage_t bp_blockstorage_s;
 

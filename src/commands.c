@@ -22,7 +22,7 @@
 
 // Constants for the network protocol. Ugly but efficient
 const ev_int32_t client_version =  70001;
-const ev_int32_t blocks_per_getblocks = 50;
+const ev_int32_t blocks_per_getblocks = 500;
 const char version_command[] =     {'v', 'e', 'r', 's', 'i', 'o', 'n', 0,   0,   0,   0,   0  };				// version       [command]
 const char verack_command[] =      {'v', 'e', 'r', 'a', 'c', 'k', 0,   0,   0,   0,   0,   0  };				// verack        [command]
 const char addr_command[] =        {'a', 'd', 'd', 'r', 0,   0,   0,   0,   0,   0,   0,   0  };				// addr          [command]
@@ -448,7 +448,7 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 			}
 			
 			write_log(1, "Sent block %d of %u bytes", bp_blockstorage_getnum(&connection->server->program->blockstorage, inv_part.hash), block_fd.size);
-			bp_connection_sendfile(connection, block_command, block_fd.seg, block_fd.offset, block_fd.size, block_fd.checksum);
+			bp_connection_sendfile(connection, block_command, block_fd.fd, block_fd.offset, block_fd.size, block_fd.checksum);
 
 			if (connection->continue_block != 0) {
 				char *continue_hash = bp_blockstorage_getatindex(&connection->server->program->blockstorage, connection->continue_block);

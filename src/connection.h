@@ -66,9 +66,14 @@ void bp_connection_free(bp_connection_s *connection);
 int bp_connection_verifypayload(bp_connection_s* connection);
 int bp_connection_readpayload(bp_connection_s *connection, unsigned char **payload);
 int bp_connection_sendmessage(bp_connection_s *connection, const char *command, unsigned char *payload, unsigned payload_length);
+#ifdef HAVE_FILE_SEGMENTS
 int bp_connection_sendfile(bp_connection_s *connection, const char *command, struct evbuffer_file_segment *seg, unsigned int offset, unsigned int size, unsigned int checksum);
+#else
+int bp_connection_sendfile(bp_connection_s *connection, const char *command, int fd, unsigned int offset, unsigned int size, unsigned int checksum);
+#endif
 int bp_connection_skipmessage(bp_connection_s *connection);
 int bp_connection_broadcast(bp_connection_s *origin, const char *command, unsigned char *payload, unsigned payload_length);
 ev_uint64_t bp_connection_readvarint(bp_connection_s *connection, size_t *position);
 
 #define BP_PROTO_NODE_NETWORK 1
+#define BP_CONNECTION_WRITE_FIRST 1
