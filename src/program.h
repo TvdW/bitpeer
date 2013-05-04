@@ -29,6 +29,7 @@ struct bp_program_t {
 	unsigned int max_connections;
 	
 	unsigned int txpool_size;
+	unsigned int blocks_per_getblocks;
 	
 	unsigned reindex_blocks: 1;
 	unsigned relay_transactions: 1;

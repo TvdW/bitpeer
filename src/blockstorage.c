@@ -245,6 +245,7 @@ int bp_blockstorage_store(bp_blockstorage_s *storage, char *blockhash, bp_btcblo
 	char filename[13];
 	sprintf(filename, "blk%.5d.dat", storage->currentblock_num);
 	int fd = open(filename, O_RDONLY);
+	assert(fd >= 0);
 	storage->block_fds[storage->currentblock_num] = evbuffer_file_segment_new(fd, 0, -1, EVBUF_FS_CLOSE_ON_FREE);
 	assert(storage->block_fds[storage->currentblock_num]);
 #endif
@@ -269,12 +270,13 @@ int bp_blockstorage_getfd(bp_blockstorage_s *storage, char *blockhash, bp_blocks
 
 #ifdef HAVE_FILE_SEGMENTS
 		fd->fd = storage->block_fds[blockfile];
+		assert(fd->fd);
 #else
 		char filename[13];
 		sprintf(filename, "blk%.5d.dat", blockfile);
 		fd->fd = open(filename, O_RDONLY);
+		assert(fd->fd >= 0);
 #endif
-		assert(fd->fd);
 		fd->offset = offset;
 		fd->size = size;
 		fd->checksum = checksum;
@@ -296,12 +298,13 @@ int bp_blockstorage_getfd(bp_blockstorage_s *storage, char *blockhash, bp_blocks
 		
 #ifdef HAVE_FILE_SEGMENTS
 		fd->fd = storage->block_fds[blockfile];
+		assert(fd->fd);
 #else
 		char filename[13];
 		sprintf(filename, "blk%.5d.dat", blockfile);
 		fd->fd = open(filename, O_RDONLY);
+		assert(fd->fd >= 0);
 #endif
-		assert(fd->fd);
 		fd->offset = offset;
 		fd->size = size;
 		fd->checksum = checksum;

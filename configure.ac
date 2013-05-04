@@ -1,4 +1,4 @@
-AC_INIT([Bitpeer], [0.2.2])
+AC_INIT([Bitpeer], [0.2.3])
 AC_PREREQ([2.59])
 AM_INIT_AUTOMAKE([foreign])
 
@@ -11,7 +11,7 @@ PKG_CHECK_MODULES([openssl], [libcrypto])
 AC_CHECK_LIB([crypto], [SHA256_Init], [], [AC_MSG_ERROR([libcrpyto not found])])
 AC_CHECK_HEADERS([openssl/sha.h], [], [AC_MSG_ERROR([openssl headers not found])])
 
-PKG_CHECK_MODULES([libevent], [libevent >= 2.1])
+PKG_CHECK_MODULES([libevent], [libevent >= 2.0])
 AC_CHECK_HEADERS([event2/buffer.h], [], [AC_MSG_ERROR([libevent headers not found])])
 
 AC_ARG_ENABLE([file-segments],

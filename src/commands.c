@@ -22,7 +22,6 @@
 
 // Constants for the network protocol. Ugly but efficient
 const ev_int32_t client_version =  70001;
-const ev_int32_t blocks_per_getblocks = 500;
 const char version_command[] =     {'v', 'e', 'r', 's', 'i', 'o', 'n', 0,   0,   0,   0,   0  };				// version       [command]
 const char verack_command[] =      {'v', 'e', 'r', 'a', 'c', 'k', 0,   0,   0,   0,   0,   0  };				// verack        [command]
 const char addr_command[] =        {'a', 'd', 'd', 'r', 0,   0,   0,   0,   0,   0,   0,   0  };				// addr          [command]
@@ -41,7 +40,7 @@ const char ping_command[] =        {'p', 'i', 'n', 'g', 0,   0,   0,   0,   0,  
 const char pong_command[] =        {'p', 'o', 'n', 'g', 0,   0,   0,   0,   0,   0,   0,   0  };				// pong          [command]
 const char reply_command[] =       {'r', 'e', 'p', 'l', 'y', 0,   0,   0,   0,   0,   0,   0  };				// reply         [command]
 const char alert_command[] =       {'a', 'l', 'e', 'r', 't', 0,   0,   0,   0,   0,   0,   0  };				// alert         [command]
-const char useragent_str[] =       {15,  '/', 'B', 'i', 't', 'p', 'e', 'e', 'r', ':', '0', '.', '2', '.', '0', '/'}; // /Bitpeer:0.2.0/ [var_str]
+const char useragent_str[] =       {15,  '/', 'B', 'i', 't', 'p', 'e', 'e', 'r', ':', '0', '.', '2', '.', '3', '/'}; // /Bitpeer:0.2.3/ [var_str]
 
 
 int bp_connection_readmessage(bp_connection_s *connection)
@@ -415,7 +414,7 @@ int bp_connection_readgetdata(bp_connection_s *connection)
 	size_t remaining_len = connection->current_message.length;
 	ev_uint64_t getdatacnt = bp_connection_readvarint(connection, &remaining_len);
 	
-	if (remaining_len != getdatacnt * 36 || getdatacnt > blocks_per_getblocks) {
+	if (remaining_len != getdatacnt * 36 || getdatacnt > connection->server->program->blocks_per_getblocks) {
 		evbuffer_drain(bufferevent_get_input(connection->sockbuf), remaining_len);
 		return -1;
 	}
@@ -534,6 +533,7 @@ int bp_connection_readgetblocks(bp_connection_s *connection)
 		return 0;
 	}
 	
+	unsigned int blocks_per_getblocks = connection->server->program->blocks_per_getblocks;
 	if (send_hashcount > blocks_per_getblocks) send_hashcount = blocks_per_getblocks;
 	
 	// Sends a grouped reply of all hashes

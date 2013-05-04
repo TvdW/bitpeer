@@ -76,6 +76,7 @@ int main(int argc, char** argv)
 	program.relay_transactions = 1;
 	program.relay_blocks = 1;
 	program.txpool_size = 1024;
+	program.blocks_per_getblocks = 500;
 	
 	/* Interpret the command line */
 	if (argc < 2) {
@@ -165,6 +166,14 @@ int main(int argc, char** argv)
 				return EXIT_FAILURE;
 			}
 		}
+		else if (strcmp(argv[i], "--getblocks-limit") == 0) {
+			NEXT_I();
+			program.blocks_per_getblocks = atoi(argv[i]);
+			if (program.blocks_per_getblocks == 0) {
+				printf("Invalid argument for %s\n", argv[i-1]);
+				return EXIT_FAILURE;
+			}
+		}
 		else if (strcmp(argv[i], "--no-tx") == 0) {
 			program.relay_transactions = 0;
 		}
@@ -184,7 +193,9 @@ int main(int argc, char** argv)
 			}
 		}
 		else if (strcmp(argv[i], "--evdebug") == 0) {
+#ifdef EVENT_DBG_ALL
 			event_enable_debug_logging(EVENT_DBG_ALL);
+#endif
 			event_set_log_callback(log_cb);
 			event_enable_debug_mode();
 		}
